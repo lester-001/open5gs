@@ -591,7 +591,7 @@ static int pcrf_gx_ccr_cb( struct msg **msg, struct avp *avp,
 	ogs_diam_logger_self()->stats.nb_echoed++;
 	ogs_assert(pthread_mutex_unlock(&ogs_diam_logger_self()->stats_lock) ==0);
 
-    ogs_diam_gx_message_free(&gx_message);
+    ogs_session_data_free(&gx_message.session_data);
 
     return 0;
 
@@ -628,7 +628,7 @@ out:
 	ret = fd_msg_send(msg, NULL, NULL);
     ogs_assert(ret == 0);
 
-    ogs_diam_gx_message_free(&gx_message);
+    ogs_session_data_free(&gx_message.session_data);
 
     return 0;
 }
@@ -985,7 +985,7 @@ int pcrf_gx_send_rar(
     /* Set no error */
     rx_message->result_code = ER_DIAMETER_SUCCESS;
 
-    ogs_diam_gx_message_free(&gx_message);
+    ogs_session_data_free(&gx_message.session_data);
 
     return OGS_OK;
 
@@ -994,7 +994,7 @@ out:
     ret = fd_sess_state_store(pcrf_gx_reg, session, &sess_data);
     ogs_assert(sess_data == NULL);
 
-    ogs_diam_gx_message_free(&gx_message);
+    ogs_session_data_free(&gx_message.session_data);
 
     return OGS_ERROR;
 }

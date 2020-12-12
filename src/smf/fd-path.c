@@ -750,14 +750,14 @@ out:
         rv = ogs_queue_push(ogs_app()->queue, e);
         if (rv != OGS_OK) {
             ogs_warn("ogs_queue_push() failed:%d", (int)rv);
-            ogs_diam_gx_message_free(gx_message);
+            ogs_session_data_free(&gx_message->session_data);
             ogs_pkbuf_free(e->pkbuf);
             smf_event_free(e);
         } else {
             ogs_pollset_notify(ogs_app()->pollset);
         }
     } else {
-        ogs_diam_gx_message_free(gx_message);
+        ogs_session_data_free(&gx_message->session_data);
         ogs_pkbuf_free(gxbuf);
     }
 
@@ -963,7 +963,7 @@ static int smf_gx_rar_cb( struct msg **msg, struct avp *avp,
     rv = ogs_queue_push(ogs_app()->queue, e);
     if (rv != OGS_OK) {
         ogs_warn("ogs_queue_push() failed:%d", (int)rv);
-        ogs_diam_gx_message_free(gx_message);
+        ogs_session_data_free(&gx_message->session_data);
         ogs_pkbuf_free(e->pkbuf);
         smf_event_free(e);
     } else {
@@ -1019,7 +1019,7 @@ out:
 	ret = fd_msg_send(msg, NULL, NULL);
     ogs_assert(ret == 0);
 
-    ogs_diam_gx_message_free(gx_message);
+    ogs_session_data_free(&gx_message->session_data);
     ogs_pkbuf_free(gxbuf);
 
     return 0;

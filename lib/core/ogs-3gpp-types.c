@@ -472,3 +472,13 @@ char *ogs_ipv6_to_string(uint8_t *addr6)
 
     return (char *)OGS_INET6_NTOP(addr6, buf);
 }
+
+void ogs_session_data_free(ogs_session_data_t *session_data)
+{
+    int i;
+
+    ogs_assert(session_data);
+
+    for (i = 0; i < session_data->num_of_pcc_rule; i++)
+        OGS_PCC_RULE_FREE(&session_data->pcc_rule[i]);
+}

@@ -508,6 +508,8 @@ typedef struct ogs_session_data_s {
     int                 num_of_pcc_rule;
 } ogs_session_data_t;
 
+void ogs_session_data_free(ogs_session_data_t *session_data);
+
 #ifdef __cplusplus
 }
 #endif

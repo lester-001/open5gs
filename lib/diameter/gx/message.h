@@ -159,7 +159,6 @@ typedef struct ogs_diam_gx_message_s {
 } ogs_diam_gx_message_t;
 
 int ogs_diam_gx_init(void);
-void ogs_diam_gx_message_free(ogs_diam_gx_message_t *gx_message);
 
 #ifdef __cplusplus
 }

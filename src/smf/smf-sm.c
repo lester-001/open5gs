@@ -213,7 +213,7 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
             break;
         }
 
-        ogs_diam_gx_message_free(gx_message);
+        ogs_session_data_free(&gx_message->session_data);
         ogs_pkbuf_free(recvbuf);
         break;
     case SMF_EVT_N4_MESSAGE:
