@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019,2020 by Sukchan Lee <acetcom@gmail.com>
+ * Copyright (C) 2019 by Sukchan Lee <acetcom@gmail.com>
  *
  * This file is part of Open5GS.
  *
@@ -17,31 +17,22 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef OGS_DBI_H
-#define OGS_DBI_H
+#if !defined(OGS_DBI_INSIDE) && !defined(OGS_DBI_COMPILATION)
+#error "This header cannot be included directly."
+#endif
 
-#include "ogs-core.h"
-#include "ogs-crypt.h"
-
-#define OGS_DBI_INSIDE
-
-#include "dbi/ogs-mongoc.h"
-#include "dbi/subscription.h"
-#include "dbi/session.h"
-
-#undef OGS_DBI_INSIDE
+#ifndef OGS_DBI_SESSION_H
+#define OGS_DBI_SESSION_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern int __ogs_dbi_domain;
-
-#undef OGS_LOG_DOMAIN
-#define OGS_LOG_DOMAIN __ogs_dbi_domain
+int ogs_dbi_session_data(char *supi, char *dnn,
+        ogs_session_data_t *session_data);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* OGS_DBI_H */
+#endif /* OGS_DBI_SESSION_H */
