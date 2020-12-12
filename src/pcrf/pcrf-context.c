@@ -266,15 +266,19 @@ int pcrf_db_qos_data(
         char *imsi_bcd, char *apn, ogs_session_data_t *session_data)
 {
     int rv;
+    char *supi = NULL;
 
     ogs_assert(imsi_bcd);
     ogs_assert(apn);
     ogs_assert(session_data);
 
     ogs_thread_mutex_lock(&self.db_lock);
+    supi = ogs_msprintf("%s-%s", OGS_ID_SUPI_TYPE_IMSI, imsi_bcd);
+    ogs_assert(supi);
 
-    rv = ogs_dbi_session_data(imsi_bcd, apn, session_data);
+    rv = ogs_dbi_session_data(supi, apn, session_data);
 
+    ogs_free(supi);
     ogs_thread_mutex_unlock(&self.db_lock);
 
     return rv;

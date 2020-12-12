@@ -19,7 +19,7 @@
 
 #include "ogs-dbi.h"
 
-int ogs_dbi_session_data(char *imsi_bcd, char *apn,
+int ogs_dbi_session_data(char *supi, char *dnn,
         ogs_session_data_t *session_data)
 {
     int rv = OGS_OK;
@@ -34,17 +34,25 @@ int ogs_dbi_session_data(char *imsi_bcd, char *apn,
     const char *utf8 = NULL;
     uint32_t length = 0;
 
-    ogs_assert(imsi_bcd);
-    ogs_assert(apn);
+    char *supi_type = NULL;
+    char *supi_id = NULL;
+
+    ogs_assert(supi);
+    ogs_assert(dnn);
     ogs_assert(session_data);
 
+    supi_type = ogs_id_get_type(supi);
+    ogs_assert(supi_type);
+    supi_id = ogs_id_get_value(supi);
+    ogs_assert(supi_id);
+
     query = BCON_NEW(
-            "imsi", BCON_UTF8(imsi_bcd),
-            "pdn.apn", BCON_UTF8(apn));
+            supi_type, BCON_UTF8(supi_id),
+            "pdn.apn", BCON_UTF8(dnn));
 #if MONGOC_MAJOR_VERSION >= 1 && MONGOC_MINOR_VERSION >= 5
     opts = BCON_NEW(
             "projection", "{",
-                "imsi", BCON_INT64(1),
+                supi_type, BCON_INT64(1),
                 "pdn.$", BCON_INT64(1),
             "}"
             );
@@ -53,7 +61,7 @@ int ogs_dbi_session_data(char *imsi_bcd, char *apn,
 #else
     asdklfjasdf
     opts = BCON_NEW(
-            "imsi", BCON_INT64(1),
+            supi_type, BCON_INT64(1),
             "pdn.$", BCON_INT64(1)
             );
     cursor = mongoc_collection_find(self.subscriberCollection,
@@ -61,7 +69,7 @@ int ogs_dbi_session_data(char *imsi_bcd, char *apn,
 #endif
 
     if (!mongoc_cursor_next(cursor, &document)) {
-        ogs_error("Cannot find IMSI(%s)+APN(%s) in DB", imsi_bcd, apn);
+        ogs_error("Cannot find IMSI(%s)+APN(%s) in DB", supi_id, dnn);
 
         rv = OGS_ERROR;
         goto out;
@@ -100,10 +108,11 @@ int ogs_dbi_session_data(char *imsi_bcd, char *apn,
                 bson_iter_recurse(&child1_iter, &child2_iter);
                 while (bson_iter_next(&child2_iter)) {
                     const char *child2_key = bson_iter_key(&child2_iter);
-                    if (!strcmp(child2_key, "apn") &&
+                    if ((!strcmp(child2_key, "apn") ||
+                            !strcmp(child2_key, "dnn")) &&
                         BSON_ITER_HOLDS_UTF8(&child2_iter)) {
                         utf8 = bson_iter_utf8(&child2_iter, &length);
-                        ogs_cpystrn(pdn->apn, utf8,
+                        ogs_cpystrn(pdn->dnn, utf8,
                             ogs_min(length, OGS_MAX_APN_LEN)+1);
                     } else if (!strcmp(child2_key, "type") &&
                         BSON_ITER_HOLDS_INT32(&child2_iter)) {
@@ -331,7 +340,7 @@ int ogs_dbi_session_data(char *imsi_bcd, char *apn,
                                 ogs_free(pcc_rule->name);
                             }
                             pcc_rule->name = ogs_msprintf(
-                                    "%s%d", apn, pcc_rule_index+1);
+                                    "%s%d", dnn, pcc_rule_index+1);
                             ogs_assert(pcc_rule->name);
                             pcc_rule->precedence = pcc_rule_index+1;
                             pcc_rule->flow_status = OGS_FLOW_STATUS_ENABLED;
@@ -348,6 +357,9 @@ out:
     if (query) bson_destroy(query);
     if (opts) bson_destroy(opts);
     if (cursor) mongoc_cursor_destroy(cursor);
+
+    ogs_free(supi_type);
+    ogs_free(supi_id);
 
     return rv;
 }
