@@ -289,8 +289,8 @@ int pcrf_db_final()
     return OGS_OK;
 }
 
-int pcrf_db_qos_data(char *imsi_bcd, char *apn,
-        ogs_diam_gx_message_t *gx_message)
+int pcrf_db_qos_data(
+        char *imsi_bcd, char *apn, ogs_session_data_t *session_data)
 {
     int rv = OGS_OK;
     mongoc_cursor_t *cursor = NULL;
@@ -306,7 +306,7 @@ int pcrf_db_qos_data(char *imsi_bcd, char *apn,
 
     ogs_assert(imsi_bcd);
     ogs_assert(apn);
-    ogs_assert(gx_message);
+    ogs_assert(session_data);
 
     ogs_thread_mutex_lock(&self.db_lock);
 
@@ -367,7 +367,7 @@ int pcrf_db_qos_data(char *imsi_bcd, char *apn,
                 pdn_index = atoi(child1_key);
                 ogs_assert(pdn_index == 0);
 
-                pdn = &gx_message->pdn;
+                pdn = &session_data->pdn;
                 bson_iter_recurse(&child1_iter, &child2_iter);
                 while (bson_iter_next(&child2_iter)) {
                     const char *child2_key = bson_iter_key(&child2_iter);
@@ -443,7 +443,7 @@ int pcrf_db_qos_data(char *imsi_bcd, char *apn,
                             ogs_assert(pcc_rule_index <
                                     OGS_MAX_NUM_OF_PCC_RULE);
 
-                            pcc_rule = &gx_message->pcc_rule[pcc_rule_index];
+                            pcc_rule = &session_data->pcc_rule[pcc_rule_index];
                             bson_iter_recurse(&child3_iter, &child4_iter);
                             while (bson_iter_next(&child4_iter)) {
                                 const char *child4_key =
@@ -608,7 +608,7 @@ int pcrf_db_qos_data(char *imsi_bcd, char *apn,
                             pcc_rule->flow_status = OGS_FLOW_STATUS_ENABLED;
                             pcc_rule_index++;
                         }
-                        gx_message->num_of_pcc_rule = pcc_rule_index;
+                        session_data->num_of_pcc_rule = pcc_rule_index;
                     }
                 }
             }

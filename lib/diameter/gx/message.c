@@ -164,7 +164,7 @@ void ogs_diam_gx_message_free(ogs_diam_gx_message_t *gx_message)
 
     ogs_assert(gx_message);
 
-    for (i = 0; i < gx_message->num_of_pcc_rule; i++) {
-        OGS_PCC_RULE_FREE(&gx_message->pcc_rule[i]);
+    for (i = 0; i < gx_message->session_data.num_of_pcc_rule; i++) {
+        OGS_PCC_RULE_FREE(&gx_message->session_data.pcc_rule[i]);
     }
 }

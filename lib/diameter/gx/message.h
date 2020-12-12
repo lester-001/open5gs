@@ -155,9 +155,7 @@ typedef struct ogs_diam_gx_message_s {
 #define OGS_DIAM_GX_CC_REQUEST_TYPE_EVENT_REQUEST                   4
     uint32_t            cc_request_type;
 
-    ogs_pdn_t           pdn;
-    ogs_pcc_rule_t      pcc_rule[OGS_MAX_NUM_OF_PCC_RULE];
-    int                 num_of_pcc_rule;
+    ogs_session_data_t  session_data;
 } ogs_diam_gx_message_t;
 
 int ogs_diam_gx_init(void);

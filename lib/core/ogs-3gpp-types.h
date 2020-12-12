@@ -501,6 +501,13 @@ typedef struct ogs_subscription_data_s {
     } msisdn[OGS_MAX_NUM_OF_MSISDN];
 } ogs_subscription_data_t;
 
+typedef struct ogs_session_data_s {
+    ogs_pdn_t           pdn;
+#define OGS_MAX_NUM_OF_PCC_RULE         8   /* Num of PCC Rule */
+    ogs_pcc_rule_t      pcc_rule[OGS_MAX_NUM_OF_PCC_RULE];
+    int                 num_of_pcc_rule;
+} ogs_session_data_t;
+
 #ifdef __cplusplus
 }
 #endif
