@@ -181,7 +181,10 @@ ogs_uint24_t ogs_uint24_from_string(char *str)
     ogs_uint24_t x;
 
     ogs_assert(str);
+
+    x.v = 0;
     ogs_ascii_to_hex(str, strlen(str), &x, 3);
+
     return ogs_be24toh(x);
 }
 
@@ -202,7 +205,10 @@ uint32_t ogs_uint32_from_string(char *str)
     uint32_t x;
 
     ogs_assert(str);
+
+    x = 0;
     ogs_ascii_to_hex(str, strlen(str), &x, 4);
+
     return be32toh(x);
 }
 
