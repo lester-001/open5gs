@@ -364,6 +364,47 @@ bool ogs_sbi_s_nssai_from_string(ogs_s_nssai_t *s_nssai, char *str)
     return rc;
 }
 
+uint64_t ogs_sbi_supported_features_from_string(char *str)
+{
+    return 0;
+}
+char *ogs_sbi_supported_features_to_string(uint64_t features)
+{
+    if (features & 0xf000000000000000)
+        return ogs_msprintf("%16lx", features);
+    else if (features & 0x0f00000000000000)
+        return ogs_msprintf("%15lx", features);
+    else if (features & 0x00f0000000000000)
+        return ogs_msprintf("%14lx", features);
+    else if (features & 0x000f000000000000)
+        return ogs_msprintf("%13lx", features);
+    else if (features & 0x0000f00000000000)
+        return ogs_msprintf("%12lx", features);
+    else if (features & 0x00000f0000000000)
+        return ogs_msprintf("%11lx", features);
+    else if (features & 0x000000f000000000)
+        return ogs_msprintf("%10lx", features);
+    else if (features & 0x0000000f00000000)
+        return ogs_msprintf("%9lx", features);
+    else if (features & 0x00000000f0000000)
+        return ogs_msprintf("%8lx", features);
+    else if (features & 0x000000000f000000)
+        return ogs_msprintf("%7lx", features);
+    else if (features & 0x0000000000f00000)
+        return ogs_msprintf("%6lx", features);
+    else if (features & 0x00000000000f0000)
+        return ogs_msprintf("%5lx", features);
+    else if (features & 0x000000000000f000)
+        return ogs_msprintf("%4lx", features);
+    else if (features & 0x0000000000000f00)
+        return ogs_msprintf("%3lx", features);
+    else if (features & 0x00000000000000f0)
+        return ogs_msprintf("%2lx", features);
+    else if (features & 0x000000000000000f)
+        return ogs_msprintf("%1lx", features);
+    return ogs_strdup("");
+}
+
 OpenAPI_plmn_id_t *ogs_sbi_build_plmn_id(ogs_plmn_id_t *plmn_id)
 {
     OpenAPI_plmn_id_t *PlmnId = NULL;

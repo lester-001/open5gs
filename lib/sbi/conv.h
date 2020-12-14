@@ -54,6 +54,14 @@ bool ogs_sbi_time_from_string(ogs_time_t *time, char *str);
 char *ogs_sbi_s_nssai_to_string(ogs_s_nssai_t *s_nssai);
 bool ogs_sbi_s_nssai_from_string(ogs_s_nssai_t *s_nssai, char *str);
 
+uint64_t ogs_sbi_supported_features_from_string(char *str);
+char *ogs_sbi_supported_features_to_string(uint64_t features);
+
+#define OGS_SBI_SUPPORTED_FEATURES_IS_SET(__fEATURES, __n) \
+    (__fEATURES & (1 << ((__n)-1)))
+#define OGS_SBI_SUPPORTED_FEATURES_SET(__fEATURES, __n) \
+    __fEATURES |= (1 << ((__n)-1))
+
 OpenAPI_plmn_id_t *ogs_sbi_build_plmn_id(ogs_plmn_id_t *plmn_id);
 bool ogs_sbi_parse_plmn_id(
         ogs_plmn_id_t *plmn_id, OpenAPI_plmn_id_t *PlmnId);
