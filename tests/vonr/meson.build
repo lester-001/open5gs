@@ -1,4 +1,4 @@
-# Copyright (C) 2019 by Sukchan Lee <acetcom@gmail.com>
+# Copyright (C) 2019,2020 by Sukchan Lee <acetcom@gmail.com>
 
 # This file is part of Open5GS.
 
@@ -15,19 +15,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-testinc = include_directories('.')
+test5gc_vonr_sources = files('''
+    abts-main.c
+    qos-flow-test.c
+'''.split())
 
-subdir('core')
-subdir('crypt')
-subdir('sctp')
-subdir('common')
-subdir('app')
-subdir('unit')
-subdir('registration')
-subdir('vonr')
-subdir('minimal')
-subdir('attach')
-subdir('volte')
-subdir('csfb')
-subdir('310014')
-subdir('handover')
+test5gc_vonr_exe = executable('vonr',
+    sources : test5gc_vonr_sources,
+    c_args : testunit_core_cc_flags,
+    dependencies : libtest5gc_dep)
+
+#test('vonr',
+#    test5gc_vonr_exe,
+#    is_parallel : false,
+#    suite: '5gc')

@@ -39,51 +39,17 @@ mme:
       - addr: 127.0.0.2
     gtpc:
       - addr: 127.0.0.2
-    sgsap:
-      - addr: 127.0.0.2
-        map:
-          tai:
-            plmn_id:
-              mcc: 901
-              mnc: 70
-            tac: 7
-          lai:
-            plmn_id:
-              mcc: 901
-              mnc: 70
-            lac: 2342
-        map:
-          tai:
-            plmn_id:
-              mcc: 724
-              mnc: 21
-            tac: 12345
-          lai:
-            plmn_id:
-              mcc: 724
-              mnc: 21
-            lac: 51544
     gummei:
-      - plmn_id:
-          mcc: 901
-          mnc: 70
-        mme_gid: 2
-        mme_code: 1
-      - plmn_id:
-          mcc: 724
-          mnc: 21
-        mme_gid: 2
-        mme_code: 1
+      plmn_id:
+        mcc: 901
+        mnc: 70
+      mme_gid: 2
+      mme_code: 1
     tai:
       plmn_id:
         mcc: 901
         mnc: 70
-      tac: 7
-    tai:
-      plmn_id:
-        mcc: 724
-        mnc: 21
-      tac: 12345
+      tac: 1
     security:
         integrity_order : [ EIA2, EIA1, EIA0 ]
         ciphering_order : [ EEA0, EEA1, EEA2 ]
@@ -114,6 +80,9 @@ smf:
       - 8.8.4.4
       - 2001:4860:4860::8888
       - 2001:4860:4860::8844
+    p-cscf:
+      - 127.0.0.1
+      - ::1
     mtu: 1400
     freeDiameter:
       identity: smf.localdomain
@@ -211,6 +180,8 @@ pcrf:
       connect:
         - identity: smf.localdomain
           addr: 127.0.0.4
+        - identity: pcscf.localdomain
+          addr: 127.0.0.1
 
 nrf:
     sbi:
