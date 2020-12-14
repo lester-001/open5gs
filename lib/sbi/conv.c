@@ -20,6 +20,12 @@
 #include "ogs-sbi.h"
 #include "yuarel.h"
 
+#include "sbi-config.h"
+
+#if HAVE_CTYPE_H
+#include <ctype.h>
+#endif
+
 static char *ogs_uridup(bool https, ogs_sockaddr_t *addr, ogs_sbi_header_t *h)
 {
     char buf[OGS_ADDRSTRLEN];
@@ -368,41 +374,25 @@ uint64_t ogs_sbi_supported_features_from_string(char *str)
 {
     return 0;
 }
+
 char *ogs_sbi_supported_features_to_string(uint64_t features)
 {
-    if (features & 0xf000000000000000)
-        return ogs_msprintf("%16lx", features);
-    else if (features & 0x0f00000000000000)
-        return ogs_msprintf("%15lx", features);
-    else if (features & 0x00f0000000000000)
-        return ogs_msprintf("%14lx", features);
-    else if (features & 0x000f000000000000)
-        return ogs_msprintf("%13lx", features);
-    else if (features & 0x0000f00000000000)
-        return ogs_msprintf("%12lx", features);
-    else if (features & 0x00000f0000000000)
-        return ogs_msprintf("%11lx", features);
-    else if (features & 0x000000f000000000)
-        return ogs_msprintf("%10lx", features);
-    else if (features & 0x0000000f00000000)
-        return ogs_msprintf("%9lx", features);
-    else if (features & 0x00000000f0000000)
-        return ogs_msprintf("%8lx", features);
-    else if (features & 0x000000000f000000)
-        return ogs_msprintf("%7lx", features);
-    else if (features & 0x0000000000f00000)
-        return ogs_msprintf("%6lx", features);
-    else if (features & 0x00000000000f0000)
-        return ogs_msprintf("%5lx", features);
-    else if (features & 0x000000000000f000)
-        return ogs_msprintf("%4lx", features);
-    else if (features & 0x0000000000000f00)
-        return ogs_msprintf("%3lx", features);
-    else if (features & 0x00000000000000f0)
-        return ogs_msprintf("%2lx", features);
-    else if (features & 0x000000000000000f)
-        return ogs_msprintf("%1lx", features);
-    return ogs_strdup("");
+    char *str = NULL, *p, *result;
+
+    if (features == 0)
+        return ogs_strdup("");
+
+    str = ogs_msprintf("%16lx", features);
+    ogs_assert(str);
+
+    p = str;
+    while(isspace(*p)) p++;
+    ogs_assert(p);
+
+    result = ogs_strdup(p);
+    ogs_free(str);
+
+    return result;
 }
 
 OpenAPI_plmn_id_t *ogs_sbi_build_plmn_id(ogs_plmn_id_t *plmn_id)

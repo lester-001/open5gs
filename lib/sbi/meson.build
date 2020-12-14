@@ -17,6 +17,21 @@
 
 subdir('openapi')
 
+sbi_conf = configuration_data()
+
+sbi_headers = ('''
+    ctype.h
+'''.split())
+
+foreach h : sbi_headers
+    if cc.has_header(h)
+        define = 'HAVE_' + h.underscorify().to_upper()
+        sbi_conf.set(define, 1)
+    endif
+endforeach
+
+configure_file(output : 'sbi-config.h', configuration : sbi_conf)
+
 libsbi_sources = files('''
     contrib/multipart_parser.c
     custom/links.c
