@@ -37,9 +37,9 @@ static void test1_func(abts_case *tc, void *data)
     test_sess_t *sess = NULL;
     test_bearer_t *qos_flow = NULL;
 
-    const char *_k_string = "5122250214c33e723a5dd523fc145fc0";
+    const char *_k_string = "70d49a71dd1a2b806a25abe0ef749f1e";
     uint8_t k[OGS_KEY_LEN];
-    const char *_opc_string = "981d464c7c52eb6e5036234984ad0bcf";
+    const char *_opc_string = "6f1bf53d624b3a43af6592854e2444c7";
     uint8_t opc[OGS_KEY_LEN];
 
     mongoc_collection_t *collection = NULL;
@@ -49,11 +49,11 @@ static void test1_func(abts_case *tc, void *data)
     const char *json =
       "{"
         "\"_id\" : { \"$oid\" : \"597223158b8861d7605378c6\" }, "
-        "\"imsi\" : \"2089300007487\", "
-#if 0
-        "\"msisdn\" : [\"821012345678\", \"82107654321\" ], "
-        "\"msisdn\" : [\"82107654321\", \"821012345678\" ], "
-#endif
+        "\"imsi\" : \"901700000021309\","
+        "\"ambr\" : { "
+          "\"uplink\" : { \"$numberLong\" : \"1024000\" }, "
+          "\"downlink\" : { \"$numberLong\" : \"1024000\" } "
+        "},"
         "\"pdn\" : ["
           "{"
             "\"apn\" : \"internet\", "
@@ -73,21 +73,16 @@ static void test1_func(abts_case *tc, void *data)
             "\"type\" : 2"
           "}"
         "],"
-        "\"ambr\" : { "
-          "\"uplink\" : { \"$numberLong\" : \"1024000\" }, "
-          "\"downlink\" : { \"$numberLong\" : \"1024000\" } "
-        "},"
+        "\"security\" : { "
+          "\"k\" : \"70d49a71dd1a2b806a25abe0ef749f1e\", "
+          "\"opc\" : \"6f1bf53d624b3a43af6592854e2444c7\", "
+          "\"amf\" : \"8000\", "
+          "\"sqn\" : { \"$numberLong\" : \"25235952177090\" } "
+        "}, "
         "\"subscribed_rau_tau_timer\" : 12,"
         "\"network_access_mode\" : 2, "
         "\"subscriber_status\" : 0, "
         "\"access_restriction_data\" : 32, "
-        "\"security\" : { "
-          "\"k\" : \"5122250214c33e723a5dd523fc145fc0\", "
-          "\"opc\" : \"981d464c7c52eb6e5036234984ad0bcf\", "
-          "\"amf\" : \"8000\", "
-          "\"sqn\" : { \"$numberLong\" : \"25235952177090\" }, "
-          "\"rand\" : \"20080C38 18183B52 2614162C 07601D0D\" "
-        "}, "
         "\"__v\" : 0 "
       "}";
 
@@ -104,26 +99,24 @@ static void test1_func(abts_case *tc, void *data)
     mobile_identity_suci.home_network_pki_value = 0;
     mobile_identity_suci.scheme_output[0] = 0;
     mobile_identity_suci.scheme_output[1] = 0;
-    mobile_identity_suci.scheme_output[2] = 0x47;
-    mobile_identity_suci.scheme_output[3] = 0x78;
+    mobile_identity_suci.scheme_output[2] = 0x20;
+    mobile_identity_suci.scheme_output[3] = 0x31;
+    mobile_identity_suci.scheme_output[4] = 0x90;
 
-    test_ue = test_ue_add_by_suci(&mobile_identity_suci, 12);
+    test_ue = test_ue_add_by_suci(&mobile_identity_suci, 13);
     ogs_assert(test_ue);
 
     test_ue->nr_cgi.cell_id = 0x40001;
 
-    test_ue->nas.registration.type = 1;
+    test_ue->nas.registration.type = OGS_NAS_KSI_NO_KEY_IS_AVAILABLE;
     test_ue->nas.registration.follow_on_request = 1;
     test_ue->nas.registration.value = OGS_NAS_5GS_REGISTRATION_TYPE_INITIAL;
 
     OGS_HEX(_k_string, strlen(_k_string), test_ue->k);
     OGS_HEX(_opc_string, strlen(_opc_string), test_ue->opc);
 
-    sess = test_sess_add_by_dnn_and_psi(test_ue, "internet", 10);
+    sess = test_sess_add_by_dnn_and_psi(test_ue, "internet", 5);
     ogs_assert(sess);
-
-    sess->pti = 0;
-    sess->pdu_session_type = OGS_PDU_SESSION_TYPE_IPV4;
 
     /* gNB connects to AMF */
     ngap = testngap_client(AF_INET);
@@ -134,7 +127,7 @@ static void test1_func(abts_case *tc, void *data)
     ABTS_PTR_NOTNULL(tc, gtpu);
 
     /* Send NG-Setup Reqeust */
-    sendbuf = testngap_build_ng_setup_request(0x102, 32);
+    sendbuf = testngap_build_ng_setup_request(0x4000, 22);
     ABTS_PTR_NOTNULL(tc, sendbuf);
     rv = testgnb_ngap_send(ngap, sendbuf);
     ABTS_INT_EQUAL(tc, OGS_OK, rv);
@@ -174,10 +167,31 @@ static void test1_func(abts_case *tc, void *data)
     bson_destroy(doc);
 
     /* Send Registration request */
-    test_ue->registration_request_param.gmm_capability = 1;
+    test_ue->registration_request_param.guti = 1;
     gmmbuf = testgmm_build_registration_request(test_ue, NULL);
     ABTS_PTR_NOTNULL(tc, gmmbuf);
+
+    test_ue->registration_request_param.gmm_capability = 1;
+    test_ue->registration_request_param.requested_nssai = 1;
+    test_ue->registration_request_param.last_visited_registered_tai = 1;
+    test_ue->registration_request_param.ue_usage_setting = 1;
+    nasbuf = testgmm_build_registration_request(test_ue, NULL);
+    ABTS_PTR_NOTNULL(tc, nasbuf);
+
     sendbuf = testngap_build_initial_ue_message(test_ue, gmmbuf, false);
+    ABTS_PTR_NOTNULL(tc, sendbuf);
+    rv = testgnb_ngap_send(ngap, sendbuf);
+    ABTS_INT_EQUAL(tc, OGS_OK, rv);
+
+    /* Receive Identity request */
+    recvbuf = testgnb_ngap_read(ngap);
+    ABTS_PTR_NOTNULL(tc, recvbuf);
+    testngap_recv(test_ue, recvbuf);
+
+    /* Send Identity response */
+    gmmbuf = testgmm_build_identity_response(test_ue);
+    ABTS_PTR_NOTNULL(tc, gmmbuf);
+    sendbuf = testngap_build_uplink_nas_transport(test_ue, gmmbuf);
     ABTS_PTR_NOTNULL(tc, sendbuf);
     rv = testgnb_ngap_send(ngap, sendbuf);
     ABTS_INT_EQUAL(tc, OGS_OK, rv);
@@ -201,8 +215,6 @@ static void test1_func(abts_case *tc, void *data)
     testngap_recv(test_ue, recvbuf);
 
     /* Send Security mode complete */
-    nasbuf = testgmm_build_registration_request(test_ue, NULL);
-    ABTS_PTR_NOTNULL(tc, nasbuf);
     gmmbuf = testgmm_build_security_mode_complete(test_ue, nasbuf);
     ABTS_PTR_NOTNULL(tc, gmmbuf);
     sendbuf = testngap_build_uplink_nas_transport(test_ue, gmmbuf);
@@ -287,25 +299,44 @@ static void test1_func(abts_case *tc, void *data)
     ABTS_PTR_NOTNULL(tc, recvbuf);
     ogs_pkbuf_free(recvbuf);
 
+    /* Send UE context release request */
+    sendbuf = testngap_build_ue_context_release_request(test_ue,
+            NGAP_Cause_PR_radioNetwork, NGAP_CauseRadioNetwork_user_inactivity,
+            true);
+    ABTS_PTR_NOTNULL(tc, sendbuf);
+    rv = testgnb_ngap_send(ngap, sendbuf);
+    ABTS_INT_EQUAL(tc, OGS_OK, rv);
+
+    /* Receive UE context release command */
+    recvbuf = testgnb_ngap_read(ngap);
+    ABTS_PTR_NOTNULL(tc, recvbuf);
+    testngap_recv(test_ue, recvbuf);
+
+    /* Send UE context release complete */
+    sendbuf = testngap_build_ue_context_release_complete(test_ue);
+    ABTS_PTR_NOTNULL(tc, sendbuf);
+    rv = testgnb_ngap_send(ngap, sendbuf);
+    ABTS_INT_EQUAL(tc, OGS_OK, rv);
+
     ogs_msleep(300);
 
     /********** Remove Subscriber in Database */
     doc = BCON_NEW("imsi", BCON_UTF8(test_ue->imsi));
     ABTS_PTR_NOTNULL(tc, doc);
     ABTS_TRUE(tc, mongoc_collection_remove(collection,
-            MONGOC_REMOVE_SINGLE_REMOVE, doc, NULL, &error)) 
+            MONGOC_REMOVE_SINGLE_REMOVE, doc, NULL, &error))
     bson_destroy(doc);
 
     mongoc_collection_destroy(collection);
-
-    /* Clear Test UE Context */
-    test_ue_remove(test_ue);
 
     /* gNB disonncect from UPF */
     testgnb_gtpu_close(gtpu);
 
     /* gNB disonncect from AMF */
     testgnb_ngap_close(ngap);
+
+    /* Clear Test UE Context */
+    test_ue_remove(test_ue);
 }
 
 abts_suite *test_qos_flow(abts_suite *suite)
