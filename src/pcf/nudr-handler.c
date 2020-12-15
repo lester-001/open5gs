@@ -22,6 +22,7 @@
 bool pcf_nudr_dr_handle_query_am_data(
     pcf_ue_t *pcf_ue, ogs_sbi_stream_t *stream, ogs_sbi_message_t *recvmsg)
 {
+    int rv;
     char *strerror = NULL;
     ogs_sbi_server_t *server = NULL;
 
@@ -38,6 +39,7 @@ bool pcf_nudr_dr_handle_query_am_data(
 
     SWITCH(recvmsg->h.resource.component[3])
     CASE(OGS_SBI_RESOURCE_NAME_AM_DATA)
+        ogs_subscription_data_t subscription_data;
         OpenAPI_policy_association_t PolicyAssociation;
 
         if (!recvmsg->AmPolicyData) {
@@ -47,6 +49,13 @@ bool pcf_nudr_dr_handle_query_am_data(
 
         if (!pcf_ue->policy_association_request) {
             strerror = ogs_msprintf("[%s] No PolicyAssociationRequest",
+                    pcf_ue->supi);
+            goto cleanup;
+        }
+
+        rv = ogs_dbi_subscription_data(pcf_ue->supi, &subscription_data);
+        if (rv != OGS_OK) {
+            strerror = ogs_msprintf("[%s] Cannot find SUPI in DB",
                     pcf_ue->supi);
             goto cleanup;
         }

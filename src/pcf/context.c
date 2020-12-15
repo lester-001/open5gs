@@ -35,6 +35,7 @@ void pcf_context_init(void)
     /* Initialize PCF context */
     memset(&self, 0, sizeof(pcf_context_t));
 
+    ogs_log_install_domain(&__ogs_dbi_domain, "dbi", ogs_core()->log.level);
     ogs_log_install_domain(&__pcf_log_domain, "pcf", ogs_core()->log.level);
 
     ogs_pool_init(&pcf_ue_pool, ogs_app()->max.ue);
