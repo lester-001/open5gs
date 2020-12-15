@@ -152,79 +152,79 @@ static void conv_test8(abts_case *tc, void *data)
 {
     char *str = NULL;
 
-    str = ogs_uint64_to_string(0);
+    str = ogs_uint64_to_0string(0);
     ABTS_STR_EQUAL(tc, "0000000000000000", str);
     ogs_free(str);
 
-    str = ogs_uint64_to_string(1);
+    str = ogs_uint64_to_0string(1);
     ABTS_STR_EQUAL(tc, "0000000000000001", str);
     ogs_free(str);
 
-    str = ogs_uint64_to_trimstring(0, '0');
+    str = ogs_uint64_to_string(0);
     ABTS_STR_EQUAL(tc, "", str);
     ogs_free(str);
 
-    str = ogs_uint64_to_trimstring(1, '0');
+    str = ogs_uint64_to_string(1);
     ABTS_STR_EQUAL(tc, "1", str);
     ogs_free(str);
 
-    str = ogs_uint64_to_trimstring(0x12, '0');
+    str = ogs_uint64_to_string(0x12);
     ABTS_STR_EQUAL(tc, "12", str);
     ogs_free(str);
 
-    str = ogs_uint64_to_trimstring(0x123, '0');
+    str = ogs_uint64_to_string(0x123);
     ABTS_STR_EQUAL(tc, "123", str);
     ogs_free(str);
 
-    str = ogs_uint64_to_trimstring(0x1234, '0');
+    str = ogs_uint64_to_string(0x1234);
     ABTS_STR_EQUAL(tc, "1234", str);
     ogs_free(str);
 
-    str = ogs_uint64_to_trimstring(0x12345, '0');
+    str = ogs_uint64_to_string(0x12345);
     ABTS_STR_EQUAL(tc, "12345", str);
     ogs_free(str);
 
-    str = ogs_uint64_to_trimstring(0x123456, '0');
+    str = ogs_uint64_to_string(0x123456);
     ABTS_STR_EQUAL(tc, "123456", str);
     ogs_free(str);
 
-    str = ogs_uint64_to_trimstring(0x1234567, '0');
+    str = ogs_uint64_to_string(0x1234567);
     ABTS_STR_EQUAL(tc, "1234567", str);
     ogs_free(str);
 
-    str = ogs_uint64_to_trimstring(0x12345678, '0');
+    str = ogs_uint64_to_string(0x12345678);
     ABTS_STR_EQUAL(tc, "12345678", str);
     ogs_free(str);
 
-    str = ogs_uint64_to_trimstring(0x123456789, '0');
+    str = ogs_uint64_to_string(0x123456789);
     ABTS_STR_EQUAL(tc, "123456789", str);
     ogs_free(str);
 
-    str = ogs_uint64_to_trimstring(0x123456789a, '0');
+    str = ogs_uint64_to_string(0x123456789a);
     ABTS_STR_EQUAL(tc, "123456789a", str);
     ogs_free(str);
 
-    str = ogs_uint64_to_trimstring(0x123456789ab, '0');
+    str = ogs_uint64_to_string(0x123456789ab);
     ABTS_STR_EQUAL(tc, "123456789ab", str);
     ogs_free(str);
 
-    str = ogs_uint64_to_trimstring(0x123456789abc, '0');
+    str = ogs_uint64_to_string(0x123456789abc);
     ABTS_STR_EQUAL(tc, "123456789abc", str);
     ogs_free(str);
 
-    str = ogs_uint64_to_trimstring(0x123456789abcd, '0');
+    str = ogs_uint64_to_string(0x123456789abcd);
     ABTS_STR_EQUAL(tc, "123456789abcd", str);
     ogs_free(str);
 
-    str = ogs_uint64_to_trimstring(0x123456789abcde, '0');
+    str = ogs_uint64_to_string(0x123456789abcde);
     ABTS_STR_EQUAL(tc, "123456789abcde", str);
     ogs_free(str);
 
-    str = ogs_uint64_to_trimstring(0x123456789abcdef, '0');
+    str = ogs_uint64_to_string(0x123456789abcdef);
     ABTS_STR_EQUAL(tc, "123456789abcdef", str);
     ogs_free(str);
 
-    str = ogs_uint64_to_trimstring(0x120456789abcd0f1, '0');
+    str = ogs_uint64_to_string(0x120456789abcd0f1);
     ABTS_STR_EQUAL(tc, "120456789abcd0f1", str);
     ogs_free(str);
 }

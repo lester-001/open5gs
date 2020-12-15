@@ -156,39 +156,39 @@ char ogs_from_hex(char ch)
     return isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10;
 }
 
-char *ogs_uint24_to_string(ogs_uint24_t x)
+char *ogs_uint24_to_0string(ogs_uint24_t x)
 {
     return ogs_msprintf("%06x", x.v);
 }
 
-char *ogs_uint28_to_string(uint32_t x)
+char *ogs_uint28_to_0string(uint32_t x)
 {
     return ogs_msprintf("%07x", x);
 }
 
-char *ogs_uint32_to_string(uint32_t x)
+char *ogs_uint32_to_0string(uint32_t x)
 {
     return ogs_msprintf("%08x", x);
 }
 
-char *ogs_uint36_to_string(uint64_t x)
+char *ogs_uint36_to_0string(uint64_t x)
 {
     return ogs_msprintf("%09llx", (long long)x);
 }
 
-char *ogs_uint64_to_string(uint64_t x)
+char *ogs_uint64_to_0string(uint64_t x)
 {
     return ogs_msprintf("%016llx", (long long)x);
 }
 
-char *ogs_uint64_to_trimstring(uint64_t x, char to_remove)
+char *ogs_uint64_to_string(uint64_t x)
 {
     char *str, *p;
 
-    str = ogs_uint64_to_string(x);
+    str = ogs_uint64_to_0string(x);
     ogs_assert(str);
 
-    p = ogs_trimcharacter(str, to_remove);
+    p = ogs_trimcharacter(str, '0');
     ogs_assert(p);
 
     ogs_free(str);

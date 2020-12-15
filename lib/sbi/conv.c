@@ -378,7 +378,7 @@ uint64_t ogs_sbi_supported_features_from_string(char *str)
 
 char *ogs_sbi_supported_features_to_string(uint64_t features)
 {
-    return ogs_uint64_to_trimstring(features, '0');
+    return ogs_uint64_to_string(features);
 }
 
 OpenAPI_plmn_id_t *ogs_sbi_build_plmn_id(ogs_plmn_id_t *plmn_id)
@@ -523,12 +523,12 @@ OpenAPI_nr_location_t *ogs_sbi_build_nr_location(
     Tai = ogs_calloc(1, sizeof(*Tai));
     ogs_assert(Tai);
     Tai->plmn_id = ogs_sbi_build_plmn_id(&tai->plmn_id);
-    Tai->tac = ogs_uint24_to_string(tai->tac);
+    Tai->tac = ogs_uint24_to_0string(tai->tac);
 
     Ncgi = ogs_calloc(1, sizeof(*Ncgi));
     ogs_assert(Ncgi);
     Ncgi->plmn_id = ogs_sbi_build_plmn_id(&nr_cgi->plmn_id);
-    Ncgi->nr_cell_id = ogs_uint36_to_string(nr_cgi->cell_id);
+    Ncgi->nr_cell_id = ogs_uint36_to_0string(nr_cgi->cell_id);
 
     NrLocation = ogs_calloc(1, sizeof(*NrLocation));
     ogs_assert(NrLocation);

@@ -255,7 +255,7 @@ char *ogs_s_nssai_sd_to_string(ogs_uint24_t sd)
     if (sd.v == OGS_S_NSSAI_NO_SD_VALUE)
         return NULL;
 
-    return ogs_uint24_to_string(sd);
+    return ogs_uint24_to_0string(sd);
 }
 
 ogs_uint24_t ogs_s_nssai_sd_from_string(const char *hex)
