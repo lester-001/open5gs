@@ -344,79 +344,6 @@ static void sbi_message_test3(abts_case *tc, void *data)
     OpenAPI_nrf_info_free(nrf_info2);
 }
 
-static void sbi_message_test4(abts_case *tc, void *data)
-{
-    char *str = NULL;
-
-    str = ogs_sbi_supported_features_to_string(0);
-    ABTS_STR_EQUAL(tc, "", str);
-    ogs_free(str);
-
-    str = ogs_sbi_supported_features_to_string(1);
-    ABTS_STR_EQUAL(tc, "1", str);
-    ogs_free(str);
-
-    str = ogs_sbi_supported_features_to_string(0x12);
-    ABTS_STR_EQUAL(tc, "12", str);
-    ogs_free(str);
-
-    str = ogs_sbi_supported_features_to_string(0x123);
-    ABTS_STR_EQUAL(tc, "123", str);
-    ogs_free(str);
-
-    str = ogs_sbi_supported_features_to_string(0x1234);
-    ABTS_STR_EQUAL(tc, "1234", str);
-    ogs_free(str);
-
-    str = ogs_sbi_supported_features_to_string(0x12345);
-    ABTS_STR_EQUAL(tc, "12345", str);
-    ogs_free(str);
-
-    str = ogs_sbi_supported_features_to_string(0x123456);
-    ABTS_STR_EQUAL(tc, "123456", str);
-    ogs_free(str);
-
-    str = ogs_sbi_supported_features_to_string(0x1234567);
-    ABTS_STR_EQUAL(tc, "1234567", str);
-    ogs_free(str);
-
-    str = ogs_sbi_supported_features_to_string(0x12345678);
-    ABTS_STR_EQUAL(tc, "12345678", str);
-    ogs_free(str);
-
-    str = ogs_sbi_supported_features_to_string(0x123456789);
-    ABTS_STR_EQUAL(tc, "123456789", str);
-    ogs_free(str);
-
-    str = ogs_sbi_supported_features_to_string(0x123456789a);
-    ABTS_STR_EQUAL(tc, "123456789a", str);
-    ogs_free(str);
-
-    str = ogs_sbi_supported_features_to_string(0x123456789ab);
-    ABTS_STR_EQUAL(tc, "123456789ab", str);
-    ogs_free(str);
-
-    str = ogs_sbi_supported_features_to_string(0x123456789abc);
-    ABTS_STR_EQUAL(tc, "123456789abc", str);
-    ogs_free(str);
-
-    str = ogs_sbi_supported_features_to_string(0x123456789abcd);
-    ABTS_STR_EQUAL(tc, "123456789abcd", str);
-    ogs_free(str);
-
-    str = ogs_sbi_supported_features_to_string(0x123456789abcde);
-    ABTS_STR_EQUAL(tc, "123456789abcde", str);
-    ogs_free(str);
-
-    str = ogs_sbi_supported_features_to_string(0x123456789abcdef);
-    ABTS_STR_EQUAL(tc, "123456789abcdef", str);
-    ogs_free(str);
-
-    str = ogs_sbi_supported_features_to_string(0x123456789abcdef0);
-    ABTS_STR_EQUAL(tc, "123456789abcdef0", str);
-    ogs_free(str);
-}
-
 abts_suite *test_sbi_message(abts_suite *suite)
 {
     suite = ADD_SUITE(suite)
@@ -424,7 +351,6 @@ abts_suite *test_sbi_message(abts_suite *suite)
     abts_run_test(suite, sbi_message_test1, NULL);
     abts_run_test(suite, sbi_message_test2, NULL);
     abts_run_test(suite, sbi_message_test3, NULL);
-    abts_run_test(suite, sbi_message_test4, NULL);
 
     return suite;
 }

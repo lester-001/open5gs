@@ -148,6 +148,87 @@ static void conv_test7(abts_case *tc, void *data)
     ABTS_TRUE(tc, strcmp("001010123456819", out) == 0);
 }
 
+static void conv_test8(abts_case *tc, void *data)
+{
+    char *str = NULL;
+
+    str = ogs_uint64_to_string(0);
+    ABTS_STR_EQUAL(tc, "0000000000000000", str);
+    ogs_free(str);
+
+    str = ogs_uint64_to_string(1);
+    ABTS_STR_EQUAL(tc, "0000000000000001", str);
+    ogs_free(str);
+
+    str = ogs_uint64_to_trimstring(0, '0');
+    ABTS_STR_EQUAL(tc, "", str);
+    ogs_free(str);
+
+    str = ogs_uint64_to_trimstring(1, '0');
+    ABTS_STR_EQUAL(tc, "1", str);
+    ogs_free(str);
+
+    str = ogs_uint64_to_trimstring(0x12, '0');
+    ABTS_STR_EQUAL(tc, "12", str);
+    ogs_free(str);
+
+    str = ogs_uint64_to_trimstring(0x123, '0');
+    ABTS_STR_EQUAL(tc, "123", str);
+    ogs_free(str);
+
+    str = ogs_uint64_to_trimstring(0x1234, '0');
+    ABTS_STR_EQUAL(tc, "1234", str);
+    ogs_free(str);
+
+    str = ogs_uint64_to_trimstring(0x12345, '0');
+    ABTS_STR_EQUAL(tc, "12345", str);
+    ogs_free(str);
+
+    str = ogs_uint64_to_trimstring(0x123456, '0');
+    ABTS_STR_EQUAL(tc, "123456", str);
+    ogs_free(str);
+
+    str = ogs_uint64_to_trimstring(0x1234567, '0');
+    ABTS_STR_EQUAL(tc, "1234567", str);
+    ogs_free(str);
+
+    str = ogs_uint64_to_trimstring(0x12345678, '0');
+    ABTS_STR_EQUAL(tc, "12345678", str);
+    ogs_free(str);
+
+    str = ogs_uint64_to_trimstring(0x123456789, '0');
+    ABTS_STR_EQUAL(tc, "123456789", str);
+    ogs_free(str);
+
+    str = ogs_uint64_to_trimstring(0x123456789a, '0');
+    ABTS_STR_EQUAL(tc, "123456789a", str);
+    ogs_free(str);
+
+    str = ogs_uint64_to_trimstring(0x123456789ab, '0');
+    ABTS_STR_EQUAL(tc, "123456789ab", str);
+    ogs_free(str);
+
+    str = ogs_uint64_to_trimstring(0x123456789abc, '0');
+    ABTS_STR_EQUAL(tc, "123456789abc", str);
+    ogs_free(str);
+
+    str = ogs_uint64_to_trimstring(0x123456789abcd, '0');
+    ABTS_STR_EQUAL(tc, "123456789abcd", str);
+    ogs_free(str);
+
+    str = ogs_uint64_to_trimstring(0x123456789abcde, '0');
+    ABTS_STR_EQUAL(tc, "123456789abcde", str);
+    ogs_free(str);
+
+    str = ogs_uint64_to_trimstring(0x123456789abcdef, '0');
+    ABTS_STR_EQUAL(tc, "123456789abcdef", str);
+    ogs_free(str);
+
+    str = ogs_uint64_to_trimstring(0x120456789abcd0f1, '0');
+    ABTS_STR_EQUAL(tc, "120456789abcd0f1", str);
+    ogs_free(str);
+}
+
 abts_suite *test_conv(abts_suite *suite)
 {
     suite = ADD_SUITE(suite)
@@ -158,6 +239,7 @@ abts_suite *test_conv(abts_suite *suite)
     abts_run_test(suite, conv_test5, NULL);
     abts_run_test(suite, conv_test6, NULL);
     abts_run_test(suite, conv_test7, NULL);
+    abts_run_test(suite, conv_test8, NULL);
 
     return suite;
 }

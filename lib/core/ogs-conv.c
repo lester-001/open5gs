@@ -176,6 +176,25 @@ char *ogs_uint36_to_string(uint64_t x)
     return ogs_msprintf("%09llx", (long long)x);
 }
 
+char *ogs_uint64_to_string(uint64_t x)
+{
+    return ogs_msprintf("%016llx", (long long)x);
+}
+
+char *ogs_uint64_to_trimstring(uint64_t x, char to_remove)
+{
+    char *str, *p;
+
+    str = ogs_uint64_to_string(x);
+    ogs_assert(str);
+
+    p = ogs_trimcharacter(str, to_remove);
+    ogs_assert(p);
+
+    ogs_free(str);
+    return ogs_strdup(p);
+}
+
 ogs_uint24_t ogs_uint24_from_string(char *str)
 {
     ogs_uint24_t x;

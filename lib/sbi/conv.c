@@ -20,12 +20,6 @@
 #include "ogs-sbi.h"
 #include "yuarel.h"
 
-#include "sbi-config.h"
-
-#if HAVE_CTYPE_H
-#include <ctype.h>
-#endif
-
 static char *ogs_uridup(bool https, ogs_sockaddr_t *addr, ogs_sbi_header_t *h)
 {
     char buf[OGS_ADDRSTRLEN];
@@ -372,27 +366,19 @@ bool ogs_sbi_s_nssai_from_string(ogs_s_nssai_t *s_nssai, char *str)
 
 uint64_t ogs_sbi_supported_features_from_string(char *str)
 {
-    return 0;
+    uint64_t x;
+
+    ogs_assert(str);
+
+    x = 0;
+    ogs_ascii_to_hex(str, strlen(str), &x, 5);
+
+    return be64toh(x) >> 28;
 }
 
 char *ogs_sbi_supported_features_to_string(uint64_t features)
 {
-    char *str = NULL, *p, *result;
-
-    if (features == 0)
-        return ogs_strdup("");
-
-    str = ogs_msprintf("%16lx", features);
-    ogs_assert(str);
-
-    p = str;
-    while(isspace(*p)) p++;
-    ogs_assert(p);
-
-    result = ogs_strdup(p);
-    ogs_free(str);
-
-    return result;
+    return ogs_uint64_to_trimstring(features, '0');
 }
 
 OpenAPI_plmn_id_t *ogs_sbi_build_plmn_id(ogs_plmn_id_t *plmn_id)
