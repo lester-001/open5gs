@@ -47,9 +47,6 @@ char *ogs_uint64_to_0string(uint64_t x);
 char *ogs_uint64_to_string(uint64_t x);
 
 ogs_uint24_t ogs_uint24_from_string(char *str);
-uint32_t ogs_uint28_from_string(char *str);
-uint32_t ogs_uint32_from_string(char *str);
-uint64_t ogs_uint36_from_string(char *str);
 uint64_t ogs_uint64_from_string(char *str);
 
 #ifdef __cplusplus

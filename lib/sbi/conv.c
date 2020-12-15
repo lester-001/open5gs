@@ -561,7 +561,7 @@ bool ogs_sbi_parse_nr_location(ogs_5gs_tai_t *tai, ogs_nr_cgi_t *nr_cgi,
         if (Ncgi->plmn_id)
             ogs_sbi_parse_plmn_id(&nr_cgi->plmn_id, Ncgi->plmn_id);
         if (Ncgi->nr_cell_id)
-            nr_cgi->cell_id = ogs_uint36_from_string(Ncgi->nr_cell_id);
+            nr_cgi->cell_id = ogs_uint64_from_string(Ncgi->nr_cell_id);
 
     }
 

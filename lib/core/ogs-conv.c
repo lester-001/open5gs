@@ -205,46 +205,8 @@ ogs_uint24_t ogs_uint24_from_string(char *str)
 
     ogs_assert(str);
 
-    x.v = 0;
-    ogs_ascii_to_hex(str, strlen(str), &x, 3);
-
-    return ogs_be24toh(x);
-}
-
-uint32_t ogs_uint28_from_string(char *str)
-{
-    uint32_t x;
-
-    ogs_assert(str);
-
-    x = 0;
-    ogs_ascii_to_hex(str, strlen(str), &x, 4);
-
-    return be32toh(x) >> 4;
-}
-
-uint32_t ogs_uint32_from_string(char *str)
-{
-    uint32_t x;
-
-    ogs_assert(str);
-
-    x = 0;
-    ogs_ascii_to_hex(str, strlen(str), &x, 4);
-
-    return be32toh(x);
-}
-
-uint64_t ogs_uint36_from_string(char *str)
-{
-    uint64_t x;
-
-    ogs_assert(str);
-
-    x = 0;
-    ogs_ascii_to_hex(str, strlen(str), &x, 5);
-
-    return be64toh(x) >> 28;
+    x.v = ogs_uint64_from_string(str);
+    return x;
 }
 
 uint64_t ogs_uint64_from_string(char *str)
