@@ -341,6 +341,9 @@ struct amf_ue_s {
      * #define OGS_NAS_SECURITY_ALGORITHMS_128_NIA3    3 */
     uint8_t         selected_int_algorithm;
 
+    uint64_t        am_policy_control_features;
+    uint64_t        smpolicycontrol_features;
+
     ogs_bitrate_t   subscribed_ue_ambr; /* UE-AMBR */
 
 #define CM_CONNECTED(__aMF) \

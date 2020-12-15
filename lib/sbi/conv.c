@@ -364,23 +364,6 @@ bool ogs_sbi_s_nssai_from_string(ogs_s_nssai_t *s_nssai, char *str)
     return rc;
 }
 
-uint64_t ogs_sbi_supported_features_from_string(char *str)
-{
-    uint64_t x;
-
-    ogs_assert(str);
-
-    x = 0;
-    ogs_ascii_to_hex(str, strlen(str), &x, 5);
-
-    return be64toh(x) >> 28;
-}
-
-char *ogs_sbi_supported_features_to_string(uint64_t features)
-{
-    return ogs_uint64_to_string(features);
-}
-
 OpenAPI_plmn_id_t *ogs_sbi_build_plmn_id(ogs_plmn_id_t *plmn_id)
 {
     OpenAPI_plmn_id_t *PlmnId = NULL;

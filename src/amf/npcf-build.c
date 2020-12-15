@@ -128,7 +128,9 @@ ogs_sbi_request_t *amf_npcf_am_policy_control_build_create(
 
     PolicyAssociationRequest.guami = ogs_sbi_build_guami(amf_ue->guami);
 
-    PolicyAssociationRequest.supp_feat = (char *)"";
+    PolicyAssociationRequest.supp_feat =
+        ogs_uint64_to_string(amf_ue->am_policy_control_features);
+    ogs_assert(PolicyAssociationRequest.supp_feat);
 
     message.PolicyAssociationRequest = &PolicyAssociationRequest;
 
@@ -136,6 +138,8 @@ ogs_sbi_request_t *amf_npcf_am_policy_control_build_create(
     ogs_assert(request);
 
     ogs_free(PolicyAssociationRequest.notification_uri);
+    ogs_free(PolicyAssociationRequest.supp_feat);
+
     if (PolicyAssociationRequest.gpsi)
         ogs_free(PolicyAssociationRequest.gpsi);
 
