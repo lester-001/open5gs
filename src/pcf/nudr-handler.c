@@ -23,6 +23,7 @@ bool pcf_nudr_dr_handle_query_am_data(
     pcf_ue_t *pcf_ue, ogs_sbi_stream_t *stream, ogs_sbi_message_t *recvmsg)
 {
     int rv;
+    int status = 0;
     char *strerror = NULL;
     ogs_sbi_server_t *server = NULL;
 
@@ -44,12 +45,14 @@ bool pcf_nudr_dr_handle_query_am_data(
 
         if (!recvmsg->AmPolicyData) {
             strerror = ogs_msprintf("[%s] No AmPolicyData", pcf_ue->supi);
+            status = OGS_SBI_HTTP_STATUS_BAD_REQUEST;
             goto cleanup;
         }
 
         if (!pcf_ue->policy_association_request) {
             strerror = ogs_msprintf("[%s] No PolicyAssociationRequest",
                     pcf_ue->supi);
+            status = OGS_SBI_HTTP_STATUS_BAD_REQUEST;
             goto cleanup;
         }
 
@@ -57,6 +60,14 @@ bool pcf_nudr_dr_handle_query_am_data(
         if (rv != OGS_OK) {
             strerror = ogs_msprintf("[%s] Cannot find SUPI in DB",
                     pcf_ue->supi);
+            status = OGS_SBI_HTTP_STATUS_NOT_FOUND;
+            goto cleanup;
+        }
+
+        if (!subscription_data.ambr.uplink &&
+                !subscription_data.ambr.downlink) {
+            ogs_error("[%s] No UE-AMBR", pcf_ue->supi);
+            status = OGS_SBI_HTTP_STATUS_NOT_FOUND;
             goto cleanup;
         }
 
@@ -96,9 +107,9 @@ bool pcf_nudr_dr_handle_query_am_data(
 
 cleanup:
     ogs_assert(strerror);
+    ogs_assert(status);
     ogs_error("%s", strerror);
-    ogs_sbi_server_send_error(
-            stream, OGS_SBI_HTTP_STATUS_BAD_REQUEST, recvmsg, strerror, NULL);
+    ogs_sbi_server_send_error(stream, status, recvmsg, strerror, NULL);
     ogs_free(strerror);
 
     return false;
