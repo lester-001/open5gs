@@ -23,6 +23,10 @@
 #include <ctype.h>
 #endif
 
+#if HAVE_LIMITS_H
+#include <limits.h>
+#endif
+
 #include "ogs-core.h"
 
 void *ogs_ascii_to_hex(char *in, int in_len, void *out, int out_len)
@@ -241,4 +245,22 @@ uint64_t ogs_uint36_from_string(char *str)
     ogs_ascii_to_hex(str, strlen(str), &x, 5);
 
     return be64toh(x) >> 28;
+}
+
+uint64_t ogs_uint64_from_string(char *str)
+{
+    uint64_t x;
+
+    ogs_assert(str);
+
+    errno = 0;
+    x = strtoll(str, NULL, 16);
+
+    if ((errno == ERANGE && (x == LONG_MAX || x == LONG_MIN)) ||
+            (errno != 0 && x == 0)) {
+        ogs_fatal("strtoll() failed [%lld:%d]", (long long)x, errno);
+        ogs_assert_if_reached();
+    }
+
+    return x;
 }

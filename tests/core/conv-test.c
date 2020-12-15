@@ -151,6 +151,7 @@ static void conv_test7(abts_case *tc, void *data)
 static void conv_test8(abts_case *tc, void *data)
 {
     char *str = NULL;
+    uint64_t x;
 
     str = ogs_uint64_to_0string(0);
     ABTS_STR_EQUAL(tc, "0000000000000000", str);
@@ -160,72 +161,107 @@ static void conv_test8(abts_case *tc, void *data)
     ABTS_STR_EQUAL(tc, "0000000000000001", str);
     ogs_free(str);
 
+    x = 0;
     str = ogs_uint64_to_string(0);
     ABTS_STR_EQUAL(tc, "", str);
+    ABTS_INT_EQUAL(tc, x, ogs_uint64_from_string(str));
+    ABTS_INT_EQUAL(tc, x, ogs_uint64_from_string("0"));
     ogs_free(str);
 
-    str = ogs_uint64_to_string(1);
+    x = 1;
+    str = ogs_uint64_to_string(x);
     ABTS_STR_EQUAL(tc, "1", str);
+    ABTS_INT_EQUAL(tc, x, ogs_uint64_from_string(str));
     ogs_free(str);
 
-    str = ogs_uint64_to_string(0x12);
+    x = 0x12;
+    str = ogs_uint64_to_string(x);
     ABTS_STR_EQUAL(tc, "12", str);
+    ABTS_INT_EQUAL(tc, x, ogs_uint64_from_string(str));
     ogs_free(str);
 
-    str = ogs_uint64_to_string(0x123);
+    x = 0x123;
+    str = ogs_uint64_to_string(x);
     ABTS_STR_EQUAL(tc, "123", str);
+    ABTS_INT_EQUAL(tc, x, ogs_uint64_from_string(str));
     ogs_free(str);
 
-    str = ogs_uint64_to_string(0x1234);
+    x = 0x1234;
+    str = ogs_uint64_to_string(x);
     ABTS_STR_EQUAL(tc, "1234", str);
+    ABTS_INT_EQUAL(tc, x, ogs_uint64_from_string(str));
     ogs_free(str);
 
-    str = ogs_uint64_to_string(0x12345);
+    x = 0x12345;
+    str = ogs_uint64_to_string(x);
     ABTS_STR_EQUAL(tc, "12345", str);
+    ABTS_INT_EQUAL(tc, x, ogs_uint64_from_string(str));
     ogs_free(str);
 
-    str = ogs_uint64_to_string(0x123456);
+    x = 0x123456;
+    str = ogs_uint64_to_string(x);
     ABTS_STR_EQUAL(tc, "123456", str);
+    ABTS_INT_EQUAL(tc, x, ogs_uint64_from_string(str));
     ogs_free(str);
 
-    str = ogs_uint64_to_string(0x1234567);
+    x = 0x1234567;
+    str = ogs_uint64_to_string(x);
     ABTS_STR_EQUAL(tc, "1234567", str);
+    ABTS_INT_EQUAL(tc, x, ogs_uint64_from_string(str));
     ogs_free(str);
 
-    str = ogs_uint64_to_string(0x12345678);
+    x = 0x12345678;
+    str = ogs_uint64_to_string(x);
     ABTS_STR_EQUAL(tc, "12345678", str);
+    ABTS_INT_EQUAL(tc, x, ogs_uint64_from_string(str));
     ogs_free(str);
 
-    str = ogs_uint64_to_string(0x123456789);
+    x = 0x123456789;
+    str = ogs_uint64_to_string(x);
     ABTS_STR_EQUAL(tc, "123456789", str);
+    ABTS_TRUE(tc, x == ogs_uint64_from_string(str));
     ogs_free(str);
 
-    str = ogs_uint64_to_string(0x123456789a);
+    x = 0x123456789a;
+    str = ogs_uint64_to_string(x);
     ABTS_STR_EQUAL(tc, "123456789a", str);
+    ABTS_TRUE(tc, x == ogs_uint64_from_string(str));
     ogs_free(str);
 
-    str = ogs_uint64_to_string(0x123456789ab);
+    x = 0x123456789ab;
+    str = ogs_uint64_to_string(x);
     ABTS_STR_EQUAL(tc, "123456789ab", str);
+    ABTS_TRUE(tc, x == ogs_uint64_from_string(str));
     ogs_free(str);
 
-    str = ogs_uint64_to_string(0x123456789abc);
+    x = 0x123456789abc;
+    str = ogs_uint64_to_string(x);
     ABTS_STR_EQUAL(tc, "123456789abc", str);
+    ABTS_TRUE(tc, x == ogs_uint64_from_string(str));
     ogs_free(str);
 
-    str = ogs_uint64_to_string(0x123456789abcd);
+    x = 0x123456789abcd;
+    str = ogs_uint64_to_string(x);
     ABTS_STR_EQUAL(tc, "123456789abcd", str);
+    ABTS_TRUE(tc, x == ogs_uint64_from_string(str));
     ogs_free(str);
 
-    str = ogs_uint64_to_string(0x123456789abcde);
+    x = 0x123456789abcde;
+    str = ogs_uint64_to_string(x);
     ABTS_STR_EQUAL(tc, "123456789abcde", str);
+    ABTS_TRUE(tc, x == ogs_uint64_from_string(str));
     ogs_free(str);
 
-    str = ogs_uint64_to_string(0x123456789abcdef);
+    x = 0x123456789abcdef;
+    str = ogs_uint64_to_string(x);
     ABTS_STR_EQUAL(tc, "123456789abcdef", str);
+    ABTS_TRUE(tc, x == ogs_uint64_from_string(str));
     ogs_free(str);
 
-    str = ogs_uint64_to_string(0x120456789abcd0f1);
+    x = 0x120456789abcd0f1;
+    str = ogs_uint64_to_string(x);
     ABTS_STR_EQUAL(tc, "120456789abcd0f1", str);
+    ABTS_TRUE(tc, x == ogs_uint64_from_string(str));
     ogs_free(str);
 }
 
