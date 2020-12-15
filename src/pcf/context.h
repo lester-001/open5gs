@@ -76,6 +76,8 @@ struct pcf_ue_s {
     ogs_guami_t guami;
     OpenAPI_rat_type_e rat_type;
 
+    uint64_t am_policy_control_features;
+
     ogs_list_t sess_list;
 };
 
@@ -91,6 +93,8 @@ struct pcf_sess_s {
     char *dnn;
     char *notification_uri;
     ogs_s_nssai_t s_nssai;
+
+    uint64_t smpolicycontrol_features;
 
     /* Related Context */
     pcf_ue_t        *pcf_ue;

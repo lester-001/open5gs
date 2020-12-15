@@ -53,7 +53,9 @@ bool pcf_nudr_dr_handle_query_am_data(
 
         memset(&PolicyAssociation, 0, sizeof(PolicyAssociation));
         PolicyAssociation.request = pcf_ue->policy_association_request;
-        PolicyAssociation.supp_feat = (char *)"";
+        PolicyAssociation.supp_feat =
+            ogs_uint64_to_string(pcf_ue->am_policy_control_features);
+        ogs_assert(PolicyAssociation.supp_feat);
 
         memset(&header, 0, sizeof(header));
         header.service.name =
@@ -73,6 +75,8 @@ bool pcf_nudr_dr_handle_query_am_data(
         ogs_sbi_server_send_response(stream, response);
 
         ogs_free(sendmsg.http.location);
+
+        ogs_free(PolicyAssociation.supp_feat);
 
         return true;
 

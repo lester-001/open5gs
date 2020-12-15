@@ -125,6 +125,10 @@ pcf_ue_t *pcf_ue_add(char *supi)
     ogs_assert(pcf_ue);
     memset(pcf_ue, 0, sizeof *pcf_ue);
 
+    /* SBI Features */
+    OGS_SBI_FEATURES_SET(pcf_ue->am_policy_control_features,
+            OGS_SBI_NPCF_AM_POLICY_CONTROL_UE_AMBR_AUTHORIZATION);
+
     pcf_ue->sbi.type = OGS_SBI_OBJ_UE_TYPE;
 
     pcf_ue->association_id = ogs_msprintf("%d",

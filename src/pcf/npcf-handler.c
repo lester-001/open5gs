@@ -27,6 +27,8 @@ bool pcf_npcf_am_policy_contrtol_handle_create(pcf_ue_t *pcf_ue,
     OpenAPI_policy_association_request_t *PolicyAssociationRequest = NULL;
     OpenAPI_guami_t *Guami = NULL;
 
+    uint64_t supported_features = 0;
+
     ogs_assert(pcf_ue);
     ogs_assert(stream);
     ogs_assert(message);
@@ -64,6 +66,10 @@ bool pcf_npcf_am_policy_contrtol_handle_create(pcf_ue_t *pcf_ue,
         ogs_free(pcf_ue->notification_uri);
     pcf_ue->notification_uri = ogs_strdup(
             PolicyAssociationRequest->notification_uri);
+
+    supported_features = ogs_uint64_from_string(
+            PolicyAssociationRequest->supp_feat);
+    pcf_ue->am_policy_control_features &= supported_features;
 
     Guami = PolicyAssociationRequest->guami;
     if (Guami && Guami->amf_id &&
