@@ -1082,13 +1082,14 @@ amf_ue_t *amf_ue_add(ran_ue_t *ran_ue)
     ogs_assert(amf_ue);
     memset(amf_ue, 0, sizeof *amf_ue);
 
+    /* SBI Type */
     amf_ue->sbi.type = OGS_SBI_OBJ_UE_TYPE;
-
-    ogs_list_init(&amf_ue->sess_list);
 
     /* SBI Features */
     OGS_SBI_FEATURES_SET(amf_ue->am_policy_control_features,
             OGS_SBI_NPCF_AM_POLICY_CONTROL_UE_AMBR_AUTHORIZATION);
+
+    ogs_list_init(&amf_ue->sess_list);
 
     /* TODO : Hard-coded */
     amf_ue->guami = &amf_self()->served_guami[0];
