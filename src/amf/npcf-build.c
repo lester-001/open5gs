@@ -128,6 +128,9 @@ ogs_sbi_request_t *amf_npcf_am_policy_control_build_create(
 
     PolicyAssociationRequest.guami = ogs_sbi_build_guami(amf_ue->guami);
 
+    PolicyAssociationRequest.service_name =
+        (char *)OGS_SBI_SERVICE_NAME_NAMF_CALLBACK;
+
     PolicyAssociationRequest.supp_feat =
         ogs_uint64_to_string(amf_ue->am_policy_control_features);
     ogs_assert(PolicyAssociationRequest.supp_feat);
