@@ -82,28 +82,36 @@ bool pcf_nudr_dr_handle_query_am_data(
         TriggerList = OpenAPI_list_create();
         ogs_assert(TriggerList);
 
-        if ((pcf_ue->authorized_ue_ambr.uplink / 1024) !=
-                (subscription_data.ambr.uplink / 1024) ||
-            (pcf_ue->authorized_ue_ambr.downlink / 1024) !=
-                (subscription_data.ambr.downlink / 1024)) {
+        subscription_data.ambr.uplink = 1000000;
 
-            pcf_ue->authorized_ue_ambr.uplink = subscription_data.ambr.uplink;
-            pcf_ue->authorized_ue_ambr.downlink =
-                subscription_data.ambr.downlink;
+        if (OGS_SBI_FEATURES_IS_SET(pcf_ue->am_policy_control_features,
+                    OGS_SBI_NPCF_AM_POLICY_CONTROL_UE_AMBR_AUTHORIZATION)) {
+            if ((pcf_ue->authorized_ue_ambr.uplink &&
+                 (pcf_ue->authorized_ue_ambr.uplink / 1024) !=
+                 (subscription_data.ambr.uplink / 1024)) ||
+                (pcf_ue->authorized_ue_ambr.downlink &&
+                 (pcf_ue->authorized_ue_ambr.downlink / 1024) !=
+                 (subscription_data.ambr.downlink / 1024))) {
 
-            OpenAPI_list_add(TriggerList,
-                    (void *)OpenAPI_request_trigger_UE_AMBR_CH);
+                pcf_ue->authorized_ue_ambr.uplink =
+                    subscription_data.ambr.uplink;
+                pcf_ue->authorized_ue_ambr.downlink =
+                    subscription_data.ambr.downlink;
+
+                OpenAPI_list_add(TriggerList,
+                        (void *)OpenAPI_request_trigger_UE_AMBR_CH);
+            }
+
+            memset(&UeAmbr, 0, sizeof(UeAmbr));
+            UeAmbr.uplink = ogs_sbi_bitrate_to_string(
+                    subscription_data.ambr.uplink, OGS_SBI_BITRATE_KBPS);
+            UeAmbr.downlink = ogs_sbi_bitrate_to_string(
+                    subscription_data.ambr.downlink, OGS_SBI_BITRATE_KBPS);
+            PolicyAssociation.ue_ambr = &UeAmbr;
         }
 
         if (TriggerList->count)
             PolicyAssociation.triggers = TriggerList;
-
-        memset(&UeAmbr, 0, sizeof(UeAmbr));
-        UeAmbr.uplink = ogs_sbi_bitrate_to_string(
-                subscription_data.ambr.uplink, OGS_SBI_BITRATE_KBPS);
-        UeAmbr.downlink = ogs_sbi_bitrate_to_string(
-                subscription_data.ambr.downlink, OGS_SBI_BITRATE_KBPS);
-        PolicyAssociation.ue_ambr = &UeAmbr;
 
         memset(&header, 0, sizeof(header));
         header.service.name =
@@ -129,7 +137,6 @@ bool pcf_nudr_dr_handle_query_am_data(
         OpenAPI_list_free(TriggerList);
         ogs_free(UeAmbr.uplink);
         ogs_free(UeAmbr.downlink);
-
 
         return true;
 
