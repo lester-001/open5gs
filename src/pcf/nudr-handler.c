@@ -176,10 +176,12 @@ bool pcf_nudr_dr_handle_query_sm_data(
     SWITCH(recvmsg->h.resource.component[3])
     CASE(OGS_SBI_RESOURCE_NAME_SM_DATA)
         ogs_session_data_t session_data;
+        ogs_pdn_t *pdn = NULL;
+
         OpenAPI_sm_policy_decision_t SmPolicyDecision;
 
         OpenAPI_list_t *SessRuleList = NULL;
-        OpenAPI_session_rule_t *SessionRule = NULL;
+        OpenAPI_session_rule_t SessionRule; /* Only 1 SessionRule is used */
 
         OpenAPI_list_t *PccRuleList = NULL;
 
@@ -201,10 +203,33 @@ bool pcf_nudr_dr_handle_query_sm_data(
             goto cleanup;
         }
 
+        pdn = &session_data.pdn;
+
+        if (!pdn->qos.qci) {
+            ogs_error("No QCI");
+            continue;
+        }
+        if (!pdn->qos.arp.priority_level) {
+            ogs_error("No Priority Level");
+            continue;
+        }
+
+        if (!pdn->ambr.uplink && !pdn->ambr.downlink) {
+            ogs_error("No Session-AMBR");
+            continue;
+        }
+
         memset(&SmPolicyDecision, 0, sizeof(SmPolicyDecision));
 
         SessRuleList = OpenAPI_list_create();
         ogs_assert(SessRuleList);
+
+        memset(&SessionRule, 0, sizeof(SessionRule));
+        SessionRule.sess_rule_id = (char *)"1"; /* Only 1 SessionRule is used */
+
+#if 0
+        OpenAPI_list_add(SessRuleList, &SessionRule);
+#endif
 
         if (SessRuleList->count)
             SmPolicyDecision.sess_rules = SessRuleList;
