@@ -1558,28 +1558,28 @@ components:
       type: string
       description: Defines a packet filter for an IP flow. Refer to subclause 5.4.2 of 3GPP TS 29.212 for encoding.
     FlowDirection:
-      anyOf:
-      - type: string
+#      anyOf:
+#      - type: string
         enum:
           - DOWNLINK
           - UPLINK
           - BIDIRECTIONAL
           - UNSPECIFIED
-      - type: string
-        description: >
-          This string provides forward-compatibility with future
-          extensions to the enumeration but is not used to encode
-          content defined in the present version of this API.
-      description: >
-        Possible values are
-        - DOWNLINK: The corresponding filter applies for traffic to the UE.
-        - UPLINK: The corresponding filter applies for traffic from the UE.
-        - BIDIRECTIONAL: The corresponding filter applies for traffic both to and from the UE.
-        - UNSPECIFIED: The corresponding filter applies for traffic to the UE (downlink), but has no specific direction declared. The service data flow detection shall apply the filter for uplink traffic as if the filter was bidirectional. The PCF shall not use the value UNSPECIFIED in filters created by the network in NW-initiated procedures. The PCF shall only include the value UNSPECIFIED in filters in UE-initiated procedures if the same value is received from the SMF.
+        type: string
+#        description: >
+#          This string provides forward-compatibility with future
+#          extensions to the enumeration but is not used to encode
+#          content defined in the present version of this API.
+#      description: >
+#        Possible values are
+#        - DOWNLINK: The corresponding filter applies for traffic to the UE.
+#        - UPLINK: The corresponding filter applies for traffic from the UE.
+#        - BIDIRECTIONAL: The corresponding filter applies for traffic both to and from the UE.
+#        - UNSPECIFIED: The corresponding filter applies for traffic to the UE (downlink), but has no specific direction declared. The service data flow detection shall apply the filter for uplink traffic as if the filter was bidirectional. The PCF shall not use the value UNSPECIFIED in filters created by the network in NW-initiated procedures. The PCF shall only include the value UNSPECIFIED in filters in UE-initiated procedures if the same value is received from the SMF.
     FlowDirectionRm:
-      anyOf:
-        - $ref: '#/components/schemas/FlowDirection'
-        - $ref: 'TS29571_CommonData.yaml#/components/schemas/NullValue'
+#      anyOf:
+         $ref: '#/components/schemas/FlowDirection'
+#        - $ref: 'TS29571_CommonData.yaml#/components/schemas/NullValue'
     ReportingLevel:
       anyOf:
       - type: string
