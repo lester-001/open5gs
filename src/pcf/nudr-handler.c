@@ -82,13 +82,13 @@ bool pcf_nudr_dr_handle_query_am_data(
         TriggerList = OpenAPI_list_create();
         ogs_assert(TriggerList);
 
-        if ((pcf_ue->subscribed_ue_ambr.uplink / 1024) !=
+        if ((pcf_ue->authorized_ue_ambr.uplink / 1024) !=
                 (subscription_data.ambr.uplink / 1024) ||
-            (pcf_ue->subscribed_ue_ambr.downlink / 1024) !=
+            (pcf_ue->authorized_ue_ambr.downlink / 1024) !=
                 (subscription_data.ambr.downlink / 1024)) {
 
-            pcf_ue->subscribed_ue_ambr.uplink = subscription_data.ambr.uplink;
-            pcf_ue->subscribed_ue_ambr.downlink =
+            pcf_ue->authorized_ue_ambr.uplink = subscription_data.ambr.uplink;
+            pcf_ue->authorized_ue_ambr.downlink =
                 subscription_data.ambr.downlink;
 
             OpenAPI_list_add(TriggerList,

@@ -79,7 +79,7 @@ struct pcf_ue_s {
 
     uint64_t am_policy_control_features;
 
-    ogs_bitrate_t subscribed_ue_ambr;
+    ogs_bitrate_t authorized_ue_ambr;
 
     ogs_list_t sess_list;
 };

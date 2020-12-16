@@ -80,9 +80,9 @@ bool pcf_npcf_am_policy_contrtol_handle_create(pcf_ue_t *pcf_ue,
 
     UeAmbr = PolicyAssociationRequest->ue_ambr;
     if (UeAmbr) {
-        pcf_ue->subscribed_ue_ambr.uplink =
+        pcf_ue->authorized_ue_ambr.uplink =
             ogs_sbi_bitrate_from_string(UeAmbr->uplink);
-        pcf_ue->subscribed_ue_ambr.downlink =
+        pcf_ue->authorized_ue_ambr.downlink =
             ogs_sbi_bitrate_from_string(UeAmbr->downlink);
     }
 
