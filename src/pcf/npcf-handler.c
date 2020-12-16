@@ -26,6 +26,7 @@ bool pcf_npcf_am_policy_contrtol_handle_create(pcf_ue_t *pcf_ue,
 {
     OpenAPI_policy_association_request_t *PolicyAssociationRequest = NULL;
     OpenAPI_guami_t *Guami = NULL;
+    OpenAPI_ambr_t *UeAmbr = NULL;
 
     uint64_t supported_features = 0;
 
@@ -75,6 +76,14 @@ bool pcf_npcf_am_policy_contrtol_handle_create(pcf_ue_t *pcf_ue,
     if (Guami && Guami->amf_id &&
         Guami->plmn_id && Guami->plmn_id->mnc && Guami->plmn_id->mcc) {
         ogs_sbi_parse_guami(&pcf_ue->guami, PolicyAssociationRequest->guami);
+    }
+
+    UeAmbr = PolicyAssociationRequest->ue_ambr;
+    if (UeAmbr) {
+        pcf_ue->subscribed_ue_ambr.uplink =
+            ogs_sbi_bitrate_from_string(UeAmbr->uplink);
+        pcf_ue->subscribed_ue_ambr.downlink =
+            ogs_sbi_bitrate_from_string(UeAmbr->downlink);
     }
 
     if (PolicyAssociationRequest->rat_type)

@@ -42,6 +42,8 @@ bool pcf_nudr_dr_handle_query_am_data(
     CASE(OGS_SBI_RESOURCE_NAME_AM_DATA)
         ogs_subscription_data_t subscription_data;
         OpenAPI_policy_association_t PolicyAssociation;
+        OpenAPI_ambr_t UeAmbr;
+        OpenAPI_list_t *TriggerList = NULL;
 
         if (!recvmsg->AmPolicyData) {
             strerror = ogs_msprintf("[%s] No AmPolicyData", pcf_ue->supi);
@@ -71,11 +73,26 @@ bool pcf_nudr_dr_handle_query_am_data(
             goto cleanup;
         }
 
+        memset(&UeAmbr, 0, sizeof(UeAmbr));
+        UeAmbr.uplink = ogs_sbi_bitrate_to_string(
+                subscription_data.ambr.uplink, OGS_SBI_BITRATE_KBPS);
+        UeAmbr.downlink = ogs_sbi_bitrate_to_string(
+                subscription_data.ambr.downlink, OGS_SBI_BITRATE_KBPS);
+
+        TriggerList = OpenAPI_list_create();
+        ogs_assert(TriggerList);
+        OpenAPI_list_add(TriggerList,
+                (void *)OpenAPI_request_trigger_UE_AMBR_CH);
+
         memset(&PolicyAssociation, 0, sizeof(PolicyAssociation));
         PolicyAssociation.request = pcf_ue->policy_association_request;
         PolicyAssociation.supp_feat =
             ogs_uint64_to_string(pcf_ue->am_policy_control_features);
         ogs_assert(PolicyAssociation.supp_feat);
+        PolicyAssociation.ue_ambr = &UeAmbr;
+
+        if (TriggerList->count)
+            PolicyAssociation.triggers = TriggerList;
 
         memset(&header, 0, sizeof(header));
         header.service.name =
@@ -97,6 +114,10 @@ bool pcf_nudr_dr_handle_query_am_data(
         ogs_free(sendmsg.http.location);
 
         ogs_free(PolicyAssociation.supp_feat);
+        ogs_free(UeAmbr.uplink);
+        ogs_free(UeAmbr.downlink);
+
+        OpenAPI_list_free(TriggerList);
 
         return true;
 
