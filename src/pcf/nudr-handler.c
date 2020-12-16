@@ -82,8 +82,6 @@ bool pcf_nudr_dr_handle_query_am_data(
         TriggerList = OpenAPI_list_create();
         ogs_assert(TriggerList);
 
-        subscription_data.ambr.uplink = 1000000;
-
         if (OGS_SBI_FEATURES_IS_SET(pcf_ue->am_policy_control_features,
                     OGS_SBI_NPCF_AM_POLICY_CONTROL_UE_AMBR_AUTHORIZATION)) {
             if ((pcf_ue->authorized_ue_ambr.uplink &&
