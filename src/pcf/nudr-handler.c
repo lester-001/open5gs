@@ -22,8 +22,7 @@
 bool pcf_nudr_dr_handle_query_am_data(
     pcf_ue_t *pcf_ue, ogs_sbi_stream_t *stream, ogs_sbi_message_t *recvmsg)
 {
-    int rv;
-    int status = 0;
+    int rv, status = 0;
     char *strerror = NULL;
     ogs_sbi_server_t *server = NULL;
 
@@ -156,6 +155,7 @@ cleanup:
 bool pcf_nudr_dr_handle_query_sm_data(
     pcf_sess_t *sess, ogs_sbi_stream_t *stream, ogs_sbi_message_t *recvmsg)
 {
+    int rv, status = 0;
     char *strerror = NULL;
     pcf_ue_t *pcf_ue = NULL;
     ogs_sbi_server_t *server = NULL;
@@ -175,15 +175,39 @@ bool pcf_nudr_dr_handle_query_sm_data(
 
     SWITCH(recvmsg->h.resource.component[3])
     CASE(OGS_SBI_RESOURCE_NAME_SM_DATA)
+        ogs_session_data_t session_data;
         OpenAPI_sm_policy_decision_t SmPolicyDecision;
+
+        OpenAPI_list_t *SessRuleList = NULL;
+        OpenAPI_session_rule_t *SessionRule = NULL;
+
+        OpenAPI_list_t *PccRuleList = NULL;
 
         if (!recvmsg->SmPolicyData) {
             strerror = ogs_msprintf("[%s:%d] No SmPolicyData",
                     pcf_ue->supi, sess->psi);
+            status = OGS_SBI_HTTP_STATUS_BAD_REQUEST;
+            goto cleanup;
+        }
+
+        ogs_assert(pcf_ue->supi);
+        ogs_assert(sess->dnn);
+
+        rv = ogs_dbi_session_data(pcf_ue->supi, sess->dnn, &session_data);
+        if (rv != OGS_OK) {
+            strerror = ogs_msprintf("[%s] Cannot find SUPI in DB",
+                    pcf_ue->supi);
+            status = OGS_SBI_HTTP_STATUS_NOT_FOUND;
             goto cleanup;
         }
 
         memset(&SmPolicyDecision, 0, sizeof(SmPolicyDecision));
+
+        SessRuleList = OpenAPI_list_create();
+        ogs_assert(SessRuleList);
+
+        if (SessRuleList->count)
+            SmPolicyDecision.sess_rules = SessRuleList;
 
         memset(&header, 0, sizeof(header));
         header.service.name = (char *)OGS_SBI_SERVICE_NAME_NPCF_SMPOLICYCONTROL;
@@ -202,6 +226,8 @@ bool pcf_nudr_dr_handle_query_sm_data(
 
         ogs_free(sendmsg.http.location);
 
+        OpenAPI_list_free(SessRuleList);
+
         return true;
 
     DEFAULT
@@ -212,8 +238,7 @@ bool pcf_nudr_dr_handle_query_sm_data(
 cleanup:
     ogs_assert(strerror);
     ogs_error("%s", strerror);
-    ogs_sbi_server_send_error(
-            stream, OGS_SBI_HTTP_STATUS_BAD_REQUEST, recvmsg, strerror, NULL);
+    ogs_sbi_server_send_error(stream, status, recvmsg, strerror, NULL);
     ogs_free(strerror);
 
     return false;
