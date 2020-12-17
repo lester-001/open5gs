@@ -103,12 +103,14 @@ bool pcf_npcf_am_policy_contrtol_handle_create(pcf_ue_t *pcf_ue,
 bool pcf_npcf_smpolicycontrtol_handle_create(pcf_sess_t *sess,
         ogs_sbi_stream_t *stream, ogs_sbi_message_t *message)
 {
+    int status = 0;
     char *strerror = NULL;
     pcf_ue_t *pcf_ue = NULL;
 
     OpenAPI_sm_policy_context_data_t *SmPolicyContextData = NULL;
     OpenAPI_snssai_t *sliceInfo = NULL;
     OpenAPI_ambr_t *SubsSessAmbr = NULL;
+    OpenAPI_subscribed_default_qos_t *SubsDefQos = NULL;
 
     uint64_t supported_features = 0;
 
@@ -121,34 +123,40 @@ bool pcf_npcf_smpolicycontrtol_handle_create(pcf_sess_t *sess,
     if (!SmPolicyContextData) {
         strerror = ogs_msprintf("[%s:%d] No SmPolicyContextData",
                 pcf_ue->supi, sess->psi);
+        status = OGS_SBI_HTTP_STATUS_BAD_REQUEST;
         goto cleanup;
     }
 
     if (!SmPolicyContextData->supi) {
         strerror = ogs_msprintf("[%s:%d] No supi", pcf_ue->supi, sess->psi);
+        status = OGS_SBI_HTTP_STATUS_BAD_REQUEST;
         goto cleanup;
     }
 
     if (!SmPolicyContextData->pdu_session_id) {
         strerror = ogs_msprintf("[%s:%d] No pduSessionId",
                 pcf_ue->supi, sess->psi);
+        status = OGS_SBI_HTTP_STATUS_BAD_REQUEST;
         goto cleanup;
     }
 
     if (!SmPolicyContextData->pdu_session_type) {
         strerror = ogs_msprintf("[%s:%d] No pduSessionType",
                 pcf_ue->supi, sess->psi);
+        status = OGS_SBI_HTTP_STATUS_BAD_REQUEST;
         goto cleanup;
     }
 
     if (!SmPolicyContextData->dnn) {
         strerror = ogs_msprintf("[%s:%d] No dnn", pcf_ue->supi, sess->psi);
+        status = OGS_SBI_HTTP_STATUS_BAD_REQUEST;
         goto cleanup;
     }
 
     if (!SmPolicyContextData->notification_uri) {
         strerror = ogs_msprintf("[%s:%d] No notificationUri",
                 pcf_ue->supi, sess->psi);
+        status = OGS_SBI_HTTP_STATUS_BAD_REQUEST;
         goto cleanup;
     }
 
@@ -156,6 +164,7 @@ bool pcf_npcf_smpolicycontrtol_handle_create(pcf_sess_t *sess,
     if (!sliceInfo) {
         strerror = ogs_msprintf("[%s:%d] No sliceInfo",
                 pcf_ue->supi, sess->psi);
+        status = OGS_SBI_HTTP_STATUS_BAD_REQUEST;
         goto cleanup;
     }
 
@@ -188,16 +197,39 @@ bool pcf_npcf_smpolicycontrtol_handle_create(pcf_sess_t *sess,
             ogs_sbi_bitrate_from_string(SubsSessAmbr->downlink);
     }
 
+    SubsDefQos = SmPolicyContextData->subs_def_qos;
+    if (SubsDefQos) {
+        sess->pdn.qos.qci = SubsDefQos->_5qi;
+        sess->pdn.qos.arp.priority_level = SubsDefQos->priority_level;
+        sess->pdn.qos.arp.pre_emption_capability =
+            OGS_PDN_PRE_EMPTION_CAPABILITY_DISABLED;
+        sess->pdn.qos.arp.pre_emption_vulnerability =
+            OGS_PDN_PRE_EMPTION_VULNERABILITY_DISABLED;
+        if (SubsDefQos->arp) {
+            sess->pdn.qos.arp.priority_level =
+                    SubsDefQos->arp->priority_level;
+            if (SubsDefQos->arp->preempt_cap ==
+                    OpenAPI_preemption_capability_MAY_PREEMPT)
+                sess->pdn.qos.arp.pre_emption_capability =
+                    OGS_PDN_PRE_EMPTION_CAPABILITY_ENABLED;
+            if (SubsDefQos->arp->preempt_vuln ==
+                    OpenAPI_preemption_vulnerability_PREEMPTABLE) {
+                sess->pdn.qos.arp.pre_emption_vulnerability =
+                    OGS_PDN_PRE_EMPTION_VULNERABILITY_ENABLED;
+            }
+        }
+    }
+
     pcf_sess_sbi_discover_and_send(OpenAPI_nf_type_UDR, sess, stream, NULL,
             pcf_nudr_dr_build_query_sm_data);
 
     return true;
 
 cleanup:
+    ogs_assert(status);
     ogs_assert(strerror);
     ogs_error("%s", strerror);
-    ogs_sbi_server_send_error(stream, OGS_SBI_HTTP_STATUS_BAD_REQUEST,
-            message, strerror, NULL);
+    ogs_sbi_server_send_error(stream, status, message, strerror, NULL);
     ogs_free(strerror);
 
     return false;

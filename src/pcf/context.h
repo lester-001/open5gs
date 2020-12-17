@@ -100,9 +100,10 @@ struct pcf_sess_s {
     uint64_t smpolicycontrol_features; /* SBI Features */
 
     ogs_bitrate_t authorized_sess_ambr;
+    ogs_pdn_t pdn;
 
     /* Related Context */
-    pcf_ue_t        *pcf_ue;
+    pcf_ue_t *pcf_ue;
 };
 
 void pcf_context_init(void);

@@ -186,7 +186,10 @@ bool pcf_nudr_dr_handle_query_sm_data(
         OpenAPI_list_t *SessRuleList = NULL;
         OpenAPI_map_t *SessRuleMap = NULL;
         OpenAPI_session_rule_t *SessionRule = NULL;
+
         OpenAPI_ambr_t AuthSessAmbr;
+        OpenAPI_authorized_default_qos_t AuthDefQos;
+        OpenAPI_arp_t Arp;
 
         OpenAPI_list_t *PccRuleList = NULL;
 
@@ -268,6 +271,44 @@ bool pcf_nudr_dr_handle_query_sm_data(
                     pdn->ambr.downlink, OGS_SBI_BITRATE_KBPS);
             SessionRule->auth_sess_ambr = &AuthSessAmbr;
         }
+
+        if ((sess->pdn.qos.qci && sess->pdn.qos.qci != pdn->qos.qci) ||
+            (sess->pdn.qos.arp.priority_level &&
+             sess->pdn.qos.arp.priority_level != pdn->qos.arp.priority_level) ||
+            sess->pdn.qos.arp.pre_emption_capability !=
+                pdn->qos.arp.pre_emption_capability ||
+            sess->pdn.qos.arp.pre_emption_vulnerability !=
+                pdn->qos.arp.pre_emption_vulnerability) {
+            sess->pdn.qos.qci = pdn->qos.qci;
+            sess->pdn.qos.arp.priority_level = pdn->qos.arp.priority_level;
+            sess->pdn.qos.arp.pre_emption_capability =
+                pdn->qos.arp.pre_emption_capability;
+            sess->pdn.qos.arp.pre_emption_vulnerability =
+                pdn->qos.arp.pre_emption_vulnerability;
+
+            OpenAPI_list_add(PolicyCtrlReqTriggers,
+                (void *)OpenAPI_policy_control_request_trigger_DEF_QOS_CH);
+        }
+
+        memset(&Arp, 0, sizeof(Arp));
+        if (sess->pdn.qos.arp.pre_emption_capability ==
+                OGS_PDN_PRE_EMPTION_CAPABILITY_ENABLED)
+            Arp.preempt_cap = OpenAPI_preemption_capability_MAY_PREEMPT;
+        else
+            Arp.preempt_cap = OpenAPI_preemption_capability_NOT_PREEMPT;
+        if (sess->pdn.qos.arp.pre_emption_vulnerability ==
+                OGS_PDN_PRE_EMPTION_CAPABILITY_ENABLED)
+            Arp.preempt_vuln = OpenAPI_preemption_vulnerability_PREEMPTABLE;
+        else
+            Arp.preempt_vuln = OpenAPI_preemption_vulnerability_NOT_PREEMPTABLE;
+        Arp.priority_level = sess->pdn.qos.arp.priority_level;
+
+        memset(&AuthDefQos, 0, sizeof(AuthDefQos));
+        AuthDefQos.arp = &Arp;
+        AuthDefQos._5qi = sess->pdn.qos.qci;
+        AuthDefQos.priority_level = sess->pdn.qos.arp.priority_level;
+
+        SessionRule->auth_def_qos = &AuthDefQos;
 
         if (PolicyCtrlReqTriggers->count)
             SmPolicyDecision.policy_ctrl_req_triggers = PolicyCtrlReqTriggers;
