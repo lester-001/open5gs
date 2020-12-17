@@ -31,6 +31,7 @@ ogs_sbi_request_t *smf_npcf_smpolicycontrol_build_create(
 
     OpenAPI_sm_policy_context_data_t SmPolicyContextData;
     OpenAPI_snssai_t sNssai;
+    OpenAPI_ambr_t SubsSessAmbr;
 
     ogs_assert(sess);
     ogs_assert(sess->sm_context_ref);
@@ -53,6 +54,22 @@ ogs_sbi_request_t *smf_npcf_smpolicycontrol_build_create(
     SmPolicyContextData.pdu_session_type = sess->pdn.pdn_type;
     ogs_assert(sess->dnn);
     SmPolicyContextData.dnn = sess->dnn;
+
+    memset(&SubsSessAmbr, 0, sizeof(SubsSessAmbr));
+    if (OGS_SBI_FEATURES_IS_SET(sess->smpolicycontrol_features,
+                OGS_SBI_NPCF_SMPOLICYCONTROL_DN_AUTHORIZATION)) {
+        if (sess->pdn.ambr.uplink) {
+            SubsSessAmbr.uplink = ogs_sbi_bitrate_to_string(
+                sess->pdn.ambr.uplink, OGS_SBI_BITRATE_KBPS);
+        }
+        if (sess->pdn.ambr.downlink) {
+            SubsSessAmbr.downlink = ogs_sbi_bitrate_to_string(
+                sess->pdn.ambr.downlink, OGS_SBI_BITRATE_KBPS);
+        }
+        if (SubsSessAmbr.downlink || SubsSessAmbr.uplink) {
+            SmPolicyContextData.subs_sess_ambr = &SubsSessAmbr;
+        }
+    }
 
     if (sess->smpolicycontrol_features) {
         SmPolicyContextData.supp_feat =
@@ -87,6 +104,9 @@ ogs_sbi_request_t *smf_npcf_smpolicycontrol_build_create(
 
     if (sNssai.sd)
         ogs_free(sNssai.sd);
+
+    if (SubsSessAmbr.downlink) ogs_free(SubsSessAmbr.downlink);
+    if (SubsSessAmbr.uplink) ogs_free(SubsSessAmbr.uplink);
 
     if (SmPolicyContextData.supp_feat)
         ogs_free(SmPolicyContextData.supp_feat);

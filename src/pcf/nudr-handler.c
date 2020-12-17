@@ -181,9 +181,12 @@ bool pcf_nudr_dr_handle_query_sm_data(
         OpenAPI_sm_policy_decision_t SmPolicyDecision;
 
         OpenAPI_list_t *SessRuleList = NULL;
-        OpenAPI_session_rule_t SessionRule; /* Only 1 SessionRule is used */
+        OpenAPI_map_t *SessRuleMap = NULL;
+        OpenAPI_session_rule_t *SessionRule = NULL;
+        OpenAPI_ambr_t AuthSessAmbr;
 
         OpenAPI_list_t *PccRuleList = NULL;
+        OpenAPI_lnode_t *node = NULL;
 
         if (!recvmsg->SmPolicyData) {
             strerror = ogs_msprintf("[%s:%d] No SmPolicyData",
@@ -224,12 +227,38 @@ bool pcf_nudr_dr_handle_query_sm_data(
         SessRuleList = OpenAPI_list_create();
         ogs_assert(SessRuleList);
 
-        memset(&SessionRule, 0, sizeof(SessionRule));
-        SessionRule.sess_rule_id = (char *)"1"; /* Only 1 SessionRule is used */
+        SessionRule = ogs_calloc(1, sizeof(*SessionRule));
+        ogs_assert(SessionRule);
 
-#if 0
-        OpenAPI_list_add(SessRuleList, &SessionRule);
-#endif
+        /* Only 1 SessionRule is used */
+        SessionRule->sess_rule_id = (char *)"1";
+
+        if (OGS_SBI_FEATURES_IS_SET(sess->smpolicycontrol_features,
+                    OGS_SBI_NPCF_SMPOLICYCONTROL_DN_AUTHORIZATION)) {
+            if ((sess->authorized_sess_ambr.uplink &&
+                 (sess->authorized_sess_ambr.uplink / 1024) !=
+                 (pdn->ambr.uplink / 1024)) ||
+                (sess->authorized_sess_ambr.downlink &&
+                 (sess->authorized_sess_ambr.downlink / 1024) !=
+                 (pdn->ambr.downlink / 1024))) {
+
+                sess->authorized_sess_ambr.uplink = pdn->ambr.uplink;
+                sess->authorized_sess_ambr.downlink = pdn->ambr.downlink;
+            }
+
+            memset(&AuthSessAmbr, 0, sizeof(AuthSessAmbr));
+            AuthSessAmbr.uplink = ogs_sbi_bitrate_to_string(
+                    pdn->ambr.uplink, OGS_SBI_BITRATE_KBPS);
+            AuthSessAmbr.downlink = ogs_sbi_bitrate_to_string(
+                    pdn->ambr.downlink, OGS_SBI_BITRATE_KBPS);
+            SessionRule->auth_sess_ambr = &AuthSessAmbr;
+        }
+
+        SessRuleMap = OpenAPI_map_create(
+                SessionRule->sess_rule_id, SessionRule);
+        ogs_assert(SessRuleMap);
+
+        OpenAPI_list_add(SessRuleList, SessRuleMap);
 
         if (SessRuleList->count)
             SmPolicyDecision.sess_rules = SessRuleList;
@@ -255,6 +284,23 @@ bool pcf_nudr_dr_handle_query_sm_data(
         ogs_sbi_server_send_response(stream, response);
 
         ogs_free(sendmsg.http.location);
+
+        OpenAPI_list_for_each(SessRuleList, node) {
+            SessRuleMap = node->data;
+            if (SessRuleMap) {
+                SessionRule = SessRuleMap->value;
+                if (SessionRule) {
+                    if (SessionRule->auth_sess_ambr) {
+                        if (SessionRule->auth_sess_ambr->uplink)
+                            ogs_free(SessionRule->auth_sess_ambr->uplink);
+                        if (SessionRule->auth_sess_ambr->downlink)
+                            ogs_free(SessionRule->auth_sess_ambr->downlink);
+                    }
+                    ogs_free(SessionRule);
+                }
+                ogs_free(SessRuleMap);
+            }
+        }
 
         OpenAPI_list_free(SessRuleList);
 

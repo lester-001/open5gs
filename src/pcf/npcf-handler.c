@@ -108,6 +108,7 @@ bool pcf_npcf_smpolicycontrtol_handle_create(pcf_sess_t *sess,
 
     OpenAPI_sm_policy_context_data_t *SmPolicyContextData = NULL;
     OpenAPI_snssai_t *sliceInfo = NULL;
+    OpenAPI_ambr_t *SubsSessAmbr = NULL;
 
     uint64_t supported_features = 0;
 
@@ -178,6 +179,14 @@ bool pcf_npcf_smpolicycontrtol_handle_create(pcf_sess_t *sess,
 
     sess->s_nssai.sst = sliceInfo->sst;
     sess->s_nssai.sd = ogs_s_nssai_sd_from_string(sliceInfo->sd);
+
+    SubsSessAmbr = SmPolicyContextData->subs_sess_ambr;
+    if (SubsSessAmbr) {
+        sess->authorized_sess_ambr.uplink =
+            ogs_sbi_bitrate_from_string(SubsSessAmbr->uplink);
+        sess->authorized_sess_ambr.downlink =
+            ogs_sbi_bitrate_from_string(SubsSessAmbr->downlink);
+    }
 
     pcf_sess_sbi_discover_and_send(OpenAPI_nf_type_UDR, sess, stream, NULL,
             pcf_nudr_dr_build_query_sm_data);
