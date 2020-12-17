@@ -216,7 +216,12 @@ pcf_sess_t *pcf_sess_add(pcf_ue_t *pcf_ue, uint8_t psi)
     ogs_assert(sess);
     memset(sess, 0, sizeof *sess);
 
+    /* SBI Type */
     sess->sbi.type = OGS_SBI_OBJ_SESS_TYPE;
+
+    /* SBI Features */
+    OGS_SBI_FEATURES_SET(sess->smpolicycontrol_features,
+            OGS_SBI_NPCF_SMPOLICYCONTROL_DN_AUTHORIZATION);
 
     sess->sm_policy_id = ogs_msprintf("%d",
             (int)ogs_pool_index(&pcf_sess_pool, sess));

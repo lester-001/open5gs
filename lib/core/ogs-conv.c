@@ -192,7 +192,7 @@ char *ogs_uint64_to_string(uint64_t x)
     str = ogs_uint64_to_0string(x);
     ogs_assert(str);
 
-    p = ogs_trimcharacter(str, '0');
+    p = ogs_left_trimcharacter(str, '0');
     ogs_assert(p);
 
     ogs_free(str);

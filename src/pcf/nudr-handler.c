@@ -234,6 +234,11 @@ bool pcf_nudr_dr_handle_query_sm_data(
         if (SessRuleList->count)
             SmPolicyDecision.sess_rules = SessRuleList;
 
+        if (sess->smpolicycontrol_features) {
+            SmPolicyDecision.supp_feat =
+                ogs_uint64_to_string(sess->smpolicycontrol_features);
+        }
+
         memset(&header, 0, sizeof(header));
         header.service.name = (char *)OGS_SBI_SERVICE_NAME_NPCF_SMPOLICYCONTROL;
         header.api.version = (char *)OGS_SBI_API_V1;
@@ -252,6 +257,9 @@ bool pcf_nudr_dr_handle_query_sm_data(
         ogs_free(sendmsg.http.location);
 
         OpenAPI_list_free(SessRuleList);
+
+        if (SmPolicyDecision.supp_feat)
+            ogs_free(SmPolicyDecision.supp_feat);
 
         return true;
 

@@ -54,6 +54,11 @@ ogs_sbi_request_t *smf_npcf_smpolicycontrol_build_create(
     ogs_assert(sess->dnn);
     SmPolicyContextData.dnn = sess->dnn;
 
+    if (sess->smpolicycontrol_features) {
+        SmPolicyContextData.supp_feat =
+            ogs_uint64_to_string(sess->smpolicycontrol_features);
+    }
+
     memset(&sNssai, 0, sizeof(sNssai));
     sNssai.sst = sess->s_nssai.sst;
     sNssai.sd = ogs_s_nssai_sd_to_string(sess->s_nssai.sd);
@@ -82,6 +87,9 @@ ogs_sbi_request_t *smf_npcf_smpolicycontrol_build_create(
 
     if (sNssai.sd)
         ogs_free(sNssai.sd);
+
+    if (SmPolicyContextData.supp_feat)
+        ogs_free(SmPolicyContextData.supp_feat);
 
     return request;
 }

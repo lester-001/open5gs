@@ -27,6 +27,8 @@ int amf_npcf_am_policy_control_handle_create(
 {
     int rv;
 
+    uint64_t supported_features;
+
     OpenAPI_policy_association_t *PolicyAssociation = NULL;
     OpenAPI_lnode_t *node = NULL;
 
@@ -83,6 +85,10 @@ int amf_npcf_am_policy_control_handle_create(
                 amf_ue, OGS_SBI_HTTP_STATUS_INTERNAL_SERVER_ERROR);
         return OGS_ERROR;
     }
+
+    /* SBI Features */
+    supported_features = ogs_uint64_from_string(PolicyAssociation->supp_feat);
+    amf_ue->am_policy_control_features &= supported_features;
 
     if (amf_ue->policy_association_id)
         ogs_free(amf_ue->policy_association_id);

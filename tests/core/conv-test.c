@@ -258,9 +258,9 @@ static void conv_test8(abts_case *tc, void *data)
     ABTS_TRUE(tc, x == ogs_uint64_from_string(str));
     ogs_free(str);
 
-    x = 0x120456789abcd0f1;
+    x = 0x120456789abcdef0;
     str = ogs_uint64_to_string(x);
-    ABTS_STR_EQUAL(tc, "120456789abcd0f1", str);
+    ABTS_STR_EQUAL(tc, "120456789abcdef0", str);
     ABTS_TRUE(tc, x == ogs_uint64_from_string(str));
     ogs_free(str);
 }

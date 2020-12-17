@@ -30,6 +30,8 @@ bool smf_npcf_smpolicycontrol_handle_create(
     char buf1[OGS_ADDRSTRLEN];
     char buf2[OGS_ADDRSTRLEN];
 
+    uint64_t supported_features;
+
     char *strerror = NULL;
     smf_ue_t *smf_ue = NULL;
 
@@ -87,6 +89,15 @@ bool smf_npcf_smpolicycontrol_handle_create(
     sess->policy_association_id = ogs_strdup(message.h.resource.component[1]);
 
     ogs_sbi_header_free(&header);
+
+    /* SBI Features */
+    if (SmPolicyDecision->supp_feat) {
+        supported_features =
+            ogs_uint64_from_string(SmPolicyDecision->supp_feat);
+        sess->smpolicycontrol_features &= supported_features;
+    } else {
+        sess->smpolicycontrol_features = 0;
+    }
 
     /*********************************************************************
      * Send PFCP Session Establiashment Request to the UPF

@@ -281,7 +281,20 @@ char *ogs_trimwhitespace(char *str)
     return str;
 }
 
-char *ogs_trimcharacter(char *str, char to_remove)
+char *ogs_left_trimcharacter(char *str, char to_remove)
+{
+    if (str == NULL) {
+        return NULL;
+    } else if (*str == 0) {
+        return str;
+    }
+
+    while(*str == to_remove) str++;
+
+    return str;
+}
+
+char *ogs_right_trimcharacter(char *str, char to_remove)
 {
     char *end;
 
@@ -291,8 +304,6 @@ char *ogs_trimcharacter(char *str, char to_remove)
         return str;
     }
 
-    while(*str == to_remove) str++;
-
     end = str + strlen(str) - 1;
     while(end > str && (*end == to_remove)) {
         end--;
@@ -301,4 +312,10 @@ char *ogs_trimcharacter(char *str, char to_remove)
     *(end+1) = 0;
 
     return str;
+}
+
+char *ogs_trimcharacter(char *str, char to_remove)
+{
+    return ogs_right_trimcharacter(
+            ogs_left_trimcharacter(str, to_remove), to_remove);
 }

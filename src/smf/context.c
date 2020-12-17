@@ -831,6 +831,10 @@ smf_sess_t *smf_sess_add_by_psi(smf_ue_t *smf_ue, uint8_t psi)
     }
     memset(sess, 0, sizeof *sess);
 
+    /* SBI Features */
+    OGS_SBI_FEATURES_SET(sess->smpolicycontrol_features,
+            OGS_SBI_NPCF_SMPOLICYCONTROL_DN_AUTHORIZATION);
+
     ogs_pfcp_pool_init(&sess->pfcp);
     smf_qfi_pool_init(sess);
 

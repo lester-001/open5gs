@@ -68,8 +68,8 @@ bool pcf_npcf_am_policy_contrtol_handle_create(pcf_ue_t *pcf_ue,
     pcf_ue->notification_uri = ogs_strdup(
             PolicyAssociationRequest->notification_uri);
 
-    supported_features = ogs_uint64_from_string(
-            PolicyAssociationRequest->supp_feat);
+    supported_features =
+        ogs_uint64_from_string(PolicyAssociationRequest->supp_feat);
     pcf_ue->am_policy_control_features &= supported_features;
 
     Guami = PolicyAssociationRequest->guami;
@@ -108,6 +108,8 @@ bool pcf_npcf_smpolicycontrtol_handle_create(pcf_sess_t *sess,
 
     OpenAPI_sm_policy_context_data_t *SmPolicyContextData = NULL;
     OpenAPI_snssai_t *sliceInfo = NULL;
+
+    uint64_t supported_features = 0;
 
     ogs_assert(sess);
     pcf_ue = sess->pcf_ue;
@@ -154,6 +156,14 @@ bool pcf_npcf_smpolicycontrtol_handle_create(pcf_sess_t *sess,
         strerror = ogs_msprintf("[%s:%d] No sliceInfo",
                 pcf_ue->supi, sess->psi);
         goto cleanup;
+    }
+
+    if (SmPolicyContextData->supp_feat) {
+        supported_features =
+            ogs_uint64_from_string(SmPolicyContextData->supp_feat);
+        sess->smpolicycontrol_features &= supported_features;
+    } else {
+        sess->smpolicycontrol_features = 0;
     }
 
     sess->pdu_session_type = SmPolicyContextData->pdu_session_type;

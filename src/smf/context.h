@@ -192,6 +192,8 @@ typedef struct smf_sess_s {
 
     ogs_pfcp_sess_t pfcp;           /* PFCP session context */
 
+    uint64_t        smpolicycontrol_features; /* SBI features */
+
     uint32_t        smf_n4_teid;    /* SMF-N4-TEID is derived from INDEX */
     uint32_t        sgw_s5c_teid;   /* SGW-S5C-TEID is received from SGW */
 
