@@ -32,6 +32,8 @@ ogs_sbi_request_t *smf_npcf_smpolicycontrol_build_create(
     OpenAPI_sm_policy_context_data_t SmPolicyContextData;
     OpenAPI_snssai_t sNssai;
     OpenAPI_ambr_t SubsSessAmbr;
+    OpenAPI_subscribed_default_qos_t SubsDefQos;
+    OpenAPI_arp_t Arp;
 
     ogs_assert(sess);
     ogs_assert(sess->sm_context_ref);
@@ -70,6 +72,26 @@ ogs_sbi_request_t *smf_npcf_smpolicycontrol_build_create(
             SmPolicyContextData.subs_sess_ambr = &SubsSessAmbr;
         }
     }
+
+    memset(&Arp, 0, sizeof(Arp));
+    if (sess->pdn.qos.arp.pre_emption_capability ==
+            OGS_PDN_PRE_EMPTION_CAPABILITY_ENABLED)
+        Arp.preempt_cap = OpenAPI_preemption_capability_MAY_PREEMPT;
+    else
+        Arp.preempt_cap = OpenAPI_preemption_capability_NOT_PREEMPT;
+    if (sess->pdn.qos.arp.pre_emption_vulnerability ==
+            OGS_PDN_PRE_EMPTION_CAPABILITY_ENABLED)
+        Arp.preempt_vuln = OpenAPI_preemption_vulnerability_PREEMPTABLE;
+    else
+        Arp.preempt_vuln = OpenAPI_preemption_vulnerability_NOT_PREEMPTABLE;
+    Arp.priority_level = sess->pdn.qos.arp.priority_level;
+
+    memset(&SubsDefQos, 0, sizeof(SubsDefQos));
+    SubsDefQos.arp = &Arp;
+    SubsDefQos._5qi = sess->pdn.qos.qci;
+    SubsDefQos.priority_level = sess->pdn.qos.arp.priority_level;
+
+    SmPolicyContextData.subs_def_qos = &SubsDefQos;
 
     if (sess->smpolicycontrol_features) {
         SmPolicyContextData.supp_feat =
