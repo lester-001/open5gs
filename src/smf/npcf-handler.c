@@ -123,13 +123,15 @@ bool smf_npcf_smpolicycontrol_handle_create(
     if (SmPolicyDecision->sess_rules) {
         OpenAPI_map_t *SessRuleMap = NULL;
         OpenAPI_session_rule_t *SessionRule = NULL;
-        OpenAPI_ambr_t *AuthSessAmbr = NULL;
 
         OpenAPI_list_for_each(SmPolicyDecision->sess_rules, node) {
             SessRuleMap = node->data;
             if (SessRuleMap) {
                 SessionRule = SessRuleMap->value;
                 if (SessionRule) {
+                    OpenAPI_ambr_t *AuthSessAmbr = NULL;
+                    OpenAPI_authorized_default_qos_t *AuthDefQos = NULL;
+
                     AuthSessAmbr = SessionRule->auth_sess_ambr;
                     if (AuthSessAmbr &&
                         trigger_results[OpenAPI_policy_control_request_trigger_SE_AMBR_CH] == true) {
@@ -141,6 +143,35 @@ bool smf_npcf_smpolicycontrol_handle_create(
                             sess->pdn.ambr.downlink =
                                 ogs_sbi_bitrate_from_string(
                                         AuthSessAmbr->downlink);
+                    }
+
+                    AuthDefQos = SessionRule->auth_def_qos;
+                    if (AuthDefQos &&
+                        trigger_results[OpenAPI_policy_control_request_trigger_DEF_QOS_CH] == true) {
+                        sess->pdn.qos.qci = AuthDefQos->_5qi;
+                        sess->pdn.qos.arp.priority_level =
+                            AuthDefQos->priority_level;
+                        if (AuthDefQos->arp) {
+                            sess->pdn.qos.arp.priority_level =
+                                    AuthDefQos->arp->priority_level;
+                            if (AuthDefQos->arp->preempt_cap ==
+                                OpenAPI_preemption_capability_NOT_PREEMPT)
+                                sess->pdn.qos.arp.pre_emption_capability =
+                                    OGS_PDN_PRE_EMPTION_CAPABILITY_DISABLED;
+                            else if (AuthDefQos->arp->preempt_cap ==
+                                OpenAPI_preemption_capability_MAY_PREEMPT)
+                                sess->pdn.qos.arp.pre_emption_capability =
+                                    OGS_PDN_PRE_EMPTION_CAPABILITY_ENABLED;
+
+                            if (AuthDefQos->arp->preempt_vuln ==
+                                OpenAPI_preemption_vulnerability_NOT_PREEMPTABLE)
+                                sess->pdn.qos.arp.pre_emption_vulnerability =
+                                    OGS_PDN_PRE_EMPTION_VULNERABILITY_DISABLED;
+                            else if (AuthDefQos->arp->preempt_vuln ==
+                                OpenAPI_preemption_vulnerability_PREEMPTABLE)
+                                sess->pdn.qos.arp.pre_emption_vulnerability =
+                                    OGS_PDN_PRE_EMPTION_VULNERABILITY_ENABLED;
+                        }
                     }
                 }
             }

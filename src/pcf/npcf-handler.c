@@ -213,10 +213,9 @@ bool pcf_npcf_smpolicycontrtol_handle_create(pcf_sess_t *sess,
                 sess->pdn.qos.arp.pre_emption_capability =
                     OGS_PDN_PRE_EMPTION_CAPABILITY_ENABLED;
             if (SubsDefQos->arp->preempt_vuln ==
-                    OpenAPI_preemption_vulnerability_PREEMPTABLE) {
+                    OpenAPI_preemption_vulnerability_PREEMPTABLE)
                 sess->pdn.qos.arp.pre_emption_vulnerability =
                     OGS_PDN_PRE_EMPTION_VULNERABILITY_ENABLED;
-            }
         }
     }
 
