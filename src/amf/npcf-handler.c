@@ -98,9 +98,9 @@ int amf_npcf_am_policy_control_handle_create(
             case OpenAPI_request_trigger_UE_AMBR_CH:
                 UeAmbr = PolicyAssociation->ue_ambr;
                 if (UeAmbr) {
-                    amf_ue->subscribed_ue_ambr.uplink =
+                    amf_ue->ue_ambr.uplink =
                         ogs_sbi_bitrate_from_string(UeAmbr->uplink);
-                    amf_ue->subscribed_ue_ambr.downlink =
+                    amf_ue->ue_ambr.downlink =
                         ogs_sbi_bitrate_from_string(UeAmbr->downlink);
                 }
                 break;

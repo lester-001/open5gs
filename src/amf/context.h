@@ -344,7 +344,7 @@ struct amf_ue_s {
     uint64_t        am_policy_control_features;
     uint64_t        smpolicycontrol_features;
 
-    ogs_bitrate_t   subscribed_ue_ambr; /* UE-AMBR */
+    ogs_bitrate_t   ue_ambr; /* UE-AMBR */
 
 #define CM_CONNECTED(__aMF) \
     ((__aMF) && ((__aMF)->ran_ue != NULL) && ran_ue_cycle((__aMF)->ran_ue))

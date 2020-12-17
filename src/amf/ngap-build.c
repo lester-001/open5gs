@@ -354,8 +354,7 @@ ogs_pkbuf_t *ngap_build_initial_context_setup_request(
 
     RAN_UE_NGAP_ID = &ie->value.choice.RAN_UE_NGAP_ID;
 
-    if (amf_ue->subscribed_ue_ambr.downlink ||
-            amf_ue->subscribed_ue_ambr.uplink) {
+    if (amf_ue->ue_ambr.downlink || amf_ue->ue_ambr.uplink) {
         ie = CALLOC(1, sizeof(NGAP_InitialContextSetupRequestIEs_t));
         ASN_SEQUENCE_ADD(&InitialContextSetupRequest->protocolIEs, ie);
 
@@ -368,10 +367,10 @@ ogs_pkbuf_t *ngap_build_initial_context_setup_request(
 
         asn_uint642INTEGER(
                 &UEAggregateMaximumBitRate->uEAggregateMaximumBitRateUL,
-                amf_ue->subscribed_ue_ambr.uplink);
+                amf_ue->ue_ambr.uplink);
         asn_uint642INTEGER(
                 &UEAggregateMaximumBitRate->uEAggregateMaximumBitRateDL,
-                amf_ue->subscribed_ue_ambr.downlink);
+                amf_ue->ue_ambr.downlink);
     }
 
     ie = CALLOC(1, sizeof(NGAP_InitialContextSetupRequestIEs_t));
