@@ -42,6 +42,7 @@ bool smf_npcf_smpolicycontrol_handle_create(
     ogs_pfcp_qer_t *qer = NULL;
 
     OpenAPI_sm_policy_decision_t *SmPolicyDecision = NULL;
+    OpenAPI_lnode_t *node = NULL;
 
     ogs_sbi_message_t message;
     ogs_sbi_header_t header;
@@ -97,6 +98,28 @@ bool smf_npcf_smpolicycontrol_handle_create(
         sess->smpolicycontrol_features &= supported_features;
     } else {
         sess->smpolicycontrol_features = 0;
+    }
+
+    if (SmPolicyDecision->sess_rules) {
+        OpenAPI_list_for_each(SmPolicyDecision->sess_rules, node) {
+            OpenAPI_map_t *SessRuleMap = node->data;
+            if (SessRuleMap) {
+                OpenAPI_session_rule_t *SessionRule = SessRuleMap->value;
+                if (SessionRule) {
+                    OpenAPI_ambr_t *AuthSessAmbr = SessionRule->auth_sess_ambr;
+                    if (AuthSessAmbr) {
+                        if (AuthSessAmbr->uplink)
+                            sess->pdn.ambr.uplink =
+                                ogs_sbi_bitrate_from_string(
+                                        AuthSessAmbr->uplink);
+                        if (AuthSessAmbr->downlink)
+                            sess->pdn.ambr.downlink =
+                                ogs_sbi_bitrate_from_string(
+                                        AuthSessAmbr->downlink);
+                    }
+                }
+            }
+        }
     }
 
     /*********************************************************************
