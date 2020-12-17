@@ -44,7 +44,8 @@ bool smf_npcf_smpolicycontrol_handle_create(
     OpenAPI_sm_policy_decision_t *SmPolicyDecision = NULL;
     OpenAPI_lnode_t *node = NULL;
 
-    bool trigger_SE_AMBR_CH = false;
+#define MAX_TRIGGER_ID 128
+    bool trigger_results[MAX_TRIGGER_ID];
 
     ogs_sbi_message_t message;
     ogs_sbi_header_t header;
@@ -107,19 +108,14 @@ bool smf_npcf_smpolicycontrol_handle_create(
      *********************************************************************/
 
     /* Get policy control request triggers */
+    memset(&trigger_results, 0, sizeof(trigger_results));
     OpenAPI_list_for_each(SmPolicyDecision->policy_ctrl_req_triggers, node) {
         if (node->data) {
-            OpenAPI_policy_control_request_trigger_e trigger =
+            OpenAPI_policy_control_request_trigger_e trigger_id =
                 (OpenAPI_policy_control_request_trigger_e)node->data;
 
-            switch (trigger) {
-            case OpenAPI_policy_control_request_trigger_SE_AMBR_CH:
-                trigger_SE_AMBR_CH = true;
-                break;
-            default:
-                ogs_error("Not implemented [%d]", trigger);
-                break;
-            }
+            ogs_assert(trigger_id < MAX_TRIGGER_ID);
+            trigger_results[trigger_id] = true;
         }
     }
 
@@ -135,7 +131,8 @@ bool smf_npcf_smpolicycontrol_handle_create(
                 SessionRule = SessRuleMap->value;
                 if (SessionRule) {
                     AuthSessAmbr = SessionRule->auth_sess_ambr;
-                    if (trigger_SE_AMBR_CH == true && AuthSessAmbr) {
+                    if (AuthSessAmbr &&
+                        trigger_results[OpenAPI_policy_control_request_trigger_SE_AMBR_CH] == true) {
                         if (AuthSessAmbr->uplink)
                             sess->pdn.ambr.uplink =
                                 ogs_sbi_bitrate_from_string(
