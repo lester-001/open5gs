@@ -258,7 +258,7 @@ bool pcf_nudr_dr_handle_query_sm_data(
                 sess->authorized_sess_ambr.downlink = pdn->ambr.downlink;
 
                 OpenAPI_list_add(PolicyCtrlReqTriggers,
-                        (void *)1);
+                    (void *)OpenAPI_policy_control_request_trigger_SE_AMBR_CH);
             }
 
             memset(&AuthSessAmbr, 0, sizeof(AuthSessAmbr));

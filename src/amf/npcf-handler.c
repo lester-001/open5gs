@@ -114,7 +114,6 @@ int amf_npcf_am_policy_control_handle_create(
                 ogs_error("Not implemented [%d]", trigger);
                 break;
             }
-
         }
     }
 

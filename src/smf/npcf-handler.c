@@ -44,6 +44,8 @@ bool smf_npcf_smpolicycontrol_handle_create(
     OpenAPI_sm_policy_decision_t *SmPolicyDecision = NULL;
     OpenAPI_lnode_t *node = NULL;
 
+    bool trigger_SE_AMBR_CH = false;
+
     ogs_sbi_message_t message;
     ogs_sbi_header_t header;
 
@@ -100,14 +102,40 @@ bool smf_npcf_smpolicycontrol_handle_create(
         sess->smpolicycontrol_features = 0;
     }
 
+    /*********************************************************************
+     * Handle Policy Control Request Triggers
+     *********************************************************************/
+
+    /* Get policy control request triggers */
+    OpenAPI_list_for_each(SmPolicyDecision->policy_ctrl_req_triggers, node) {
+        if (node->data) {
+            OpenAPI_policy_control_request_trigger_e trigger =
+                (OpenAPI_policy_control_request_trigger_e)node->data;
+
+            switch (trigger) {
+            case OpenAPI_policy_control_request_trigger_SE_AMBR_CH:
+                trigger_SE_AMBR_CH = true;
+                break;
+            default:
+                ogs_error("Not implemented [%d]", trigger);
+                break;
+            }
+        }
+    }
+
+    /* Update authroized session-AMBR */
     if (SmPolicyDecision->sess_rules) {
+        OpenAPI_map_t *SessRuleMap = NULL;
+        OpenAPI_session_rule_t *SessionRule = NULL;
+        OpenAPI_ambr_t *AuthSessAmbr = NULL;
+
         OpenAPI_list_for_each(SmPolicyDecision->sess_rules, node) {
-            OpenAPI_map_t *SessRuleMap = node->data;
+            SessRuleMap = node->data;
             if (SessRuleMap) {
-                OpenAPI_session_rule_t *SessionRule = SessRuleMap->value;
+                SessionRule = SessRuleMap->value;
                 if (SessionRule) {
-                    OpenAPI_ambr_t *AuthSessAmbr = SessionRule->auth_sess_ambr;
-                    if (AuthSessAmbr) {
+                    AuthSessAmbr = SessionRule->auth_sess_ambr;
+                    if (trigger_SE_AMBR_CH == true && AuthSessAmbr) {
                         if (AuthSessAmbr->uplink)
                             sess->pdn.ambr.uplink =
                                 ogs_sbi_bitrate_from_string(
