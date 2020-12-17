@@ -12,7 +12,7 @@
 #include "../include/list.h"
 #include "../include/keyValuePair.h"
 #include "../include/binary.h"
-#include "policy_association_release_cause.h"
+#include "sm_policy_association_release_cause.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,12 +21,12 @@ extern "C" {
 typedef struct OpenAPI_termination_notification_s OpenAPI_termination_notification_t;
 typedef struct OpenAPI_termination_notification_s {
     char *resource_uri;
-    OpenAPI_policy_association_release_cause_e cause;
+    OpenAPI_sm_policy_association_release_cause_e cause;
 } OpenAPI_termination_notification_t;
 
 OpenAPI_termination_notification_t *OpenAPI_termination_notification_create(
     char *resource_uri,
-    OpenAPI_policy_association_release_cause_e cause
+    OpenAPI_sm_policy_association_release_cause_e cause
     );
 void OpenAPI_termination_notification_free(OpenAPI_termination_notification_t *termination_notification);
 OpenAPI_termination_notification_t *OpenAPI_termination_notification_parseFromJSON(cJSON *termination_notificationJSON);

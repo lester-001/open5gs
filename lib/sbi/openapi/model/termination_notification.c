@@ -6,7 +6,7 @@
 
 OpenAPI_termination_notification_t *OpenAPI_termination_notification_create(
     char *resource_uri,
-    OpenAPI_policy_association_release_cause_e cause
+    OpenAPI_sm_policy_association_release_cause_e cause
     )
 {
     OpenAPI_termination_notification_t *termination_notification_local_var = OpenAPI_malloc(sizeof(OpenAPI_termination_notification_t));
@@ -52,7 +52,7 @@ cJSON *OpenAPI_termination_notification_convertToJSON(OpenAPI_termination_notifi
         ogs_error("OpenAPI_termination_notification_convertToJSON() failed [cause]");
         goto end;
     }
-    if (cJSON_AddStringToObject(item, "cause", OpenAPI_policy_association_release_cause_ToString(termination_notification->cause)) == NULL) {
+    if (cJSON_AddStringToObject(item, "cause", OpenAPI_sm_policy_association_release_cause_ToString(termination_notification->cause)) == NULL) {
         ogs_error("OpenAPI_termination_notification_convertToJSON() failed [cause]");
         goto end;
     }
@@ -82,13 +82,13 @@ OpenAPI_termination_notification_t *OpenAPI_termination_notification_parseFromJS
         goto end;
     }
 
-    OpenAPI_policy_association_release_cause_e causeVariable;
+    OpenAPI_sm_policy_association_release_cause_e causeVariable;
 
     if (!cJSON_IsString(cause)) {
         ogs_error("OpenAPI_termination_notification_parseFromJSON() failed [cause]");
         goto end;
     }
-    causeVariable = OpenAPI_policy_association_release_cause_FromString(cause->valuestring);
+    causeVariable = OpenAPI_sm_policy_association_release_cause_FromString(cause->valuestring);
 
     termination_notification_local_var = OpenAPI_termination_notification_create (
         ogs_strdup(resource_uri->valuestring),

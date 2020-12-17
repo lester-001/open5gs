@@ -40,6 +40,7 @@ bool pcf_nudr_dr_handle_query_am_data(
     SWITCH(recvmsg->h.resource.component[3])
     CASE(OGS_SBI_RESOURCE_NAME_AM_DATA)
         ogs_subscription_data_t subscription_data;
+
         OpenAPI_policy_association_t PolicyAssociation;
         OpenAPI_ambr_t UeAmbr;
         OpenAPI_list_t *TriggerList = NULL;
@@ -180,13 +181,16 @@ bool pcf_nudr_dr_handle_query_sm_data(
 
         OpenAPI_sm_policy_decision_t SmPolicyDecision;
 
+        OpenAPI_lnode_t *node = NULL;
+
         OpenAPI_list_t *SessRuleList = NULL;
         OpenAPI_map_t *SessRuleMap = NULL;
         OpenAPI_session_rule_t *SessionRule = NULL;
         OpenAPI_ambr_t AuthSessAmbr;
 
         OpenAPI_list_t *PccRuleList = NULL;
-        OpenAPI_lnode_t *node = NULL;
+
+        OpenAPI_list_t *PolicyCtrlReqTriggers = NULL;
 
         if (!recvmsg->SmPolicyData) {
             strerror = ogs_msprintf("[%s:%d] No SmPolicyData",
@@ -200,8 +204,8 @@ bool pcf_nudr_dr_handle_query_sm_data(
 
         rv = ogs_dbi_session_data(pcf_ue->supi, sess->dnn, &session_data);
         if (rv != OGS_OK) {
-            strerror = ogs_msprintf("[%s] Cannot find SUPI in DB",
-                    pcf_ue->supi);
+            strerror = ogs_msprintf("[%s:%d] Cannot find SUPI in DB",
+                    pcf_ue->supi, sess->psi);
             status = OGS_SBI_HTTP_STATUS_NOT_FOUND;
             goto cleanup;
         }
@@ -209,20 +213,28 @@ bool pcf_nudr_dr_handle_query_sm_data(
         pdn = &session_data.pdn;
 
         if (!pdn->qos.qci) {
-            ogs_error("No QCI");
-            continue;
+            strerror = ogs_msprintf("[%s:%d] No QCI", pcf_ue->supi, sess->psi);
+            status = OGS_SBI_HTTP_STATUS_BAD_REQUEST;
+            goto cleanup;
         }
         if (!pdn->qos.arp.priority_level) {
-            ogs_error("No Priority Level");
-            continue;
+            strerror = ogs_msprintf("[%s:%d] No Priority Level",
+                    pcf_ue->supi, sess->psi);
+            status = OGS_SBI_HTTP_STATUS_BAD_REQUEST;
+            goto cleanup;
         }
 
         if (!pdn->ambr.uplink && !pdn->ambr.downlink) {
-            ogs_error("No Session-AMBR");
-            continue;
+            strerror = ogs_msprintf("[%s:%d] No Session-AMBR",
+                    pcf_ue->supi, sess->psi);
+            status = OGS_SBI_HTTP_STATUS_BAD_REQUEST;
+            goto cleanup;
         }
 
         memset(&SmPolicyDecision, 0, sizeof(SmPolicyDecision));
+
+        PolicyCtrlReqTriggers = OpenAPI_list_create();
+        ogs_assert(PolicyCtrlReqTriggers);
 
         SessRuleList = OpenAPI_list_create();
         ogs_assert(SessRuleList);
@@ -244,6 +256,9 @@ bool pcf_nudr_dr_handle_query_sm_data(
 
                 sess->authorized_sess_ambr.uplink = pdn->ambr.uplink;
                 sess->authorized_sess_ambr.downlink = pdn->ambr.downlink;
+
+                OpenAPI_list_add(PolicyCtrlReqTriggers,
+                        (void *)1);
             }
 
             memset(&AuthSessAmbr, 0, sizeof(AuthSessAmbr));
@@ -253,6 +268,9 @@ bool pcf_nudr_dr_handle_query_sm_data(
                     pdn->ambr.downlink, OGS_SBI_BITRATE_KBPS);
             SessionRule->auth_sess_ambr = &AuthSessAmbr;
         }
+
+        if (PolicyCtrlReqTriggers->count)
+            SmPolicyDecision.policy_ctrl_req_triggers = PolicyCtrlReqTriggers;
 
         SessRuleMap = OpenAPI_map_create(
                 SessionRule->sess_rule_id, SessionRule);
@@ -303,6 +321,8 @@ bool pcf_nudr_dr_handle_query_sm_data(
         }
 
         OpenAPI_list_free(SessRuleList);
+
+        OpenAPI_list_free(PolicyCtrlReqTriggers);
 
         if (SmPolicyDecision.supp_feat)
             ogs_free(SmPolicyDecision.supp_feat);

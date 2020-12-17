@@ -1817,8 +1817,8 @@ components:
           - CREATE_PCC_RULE
           - DELETE_PCC_RULE
           - MODIFY_PCC_RULE_AND_ADD_PACKET_FILTERS
-          - MODIFY_ PCC_RULE_AND_REPLACE_PACKET_FILTERS
-          - MODIFY_ PCC_RULE_AND_DELETE_PACKET_FILTERS
+          - MODIFY_PCC_RULE_AND_REPLACE_PACKET_FILTERS
+          - MODIFY_PCC_RULE_AND_DELETE_PACKET_FILTERS
           - MODIFY_PCC_RULE_WITHOUT_MODIFY_PACKET_FILTERS
         type: string
 #        description: >
@@ -1930,12 +1930,12 @@ components:
           - PRIORITY_BASED
         type: string
     MulticastAccessControl:
-#      anyOf:
-#      - type: string
+      anyOf:
+      - type: string
         enum:
           - ALLOWED
           - NOT_ALLOWED
-        type: string
+      - type: string
     RequestedQosMonitoringParameter:
 #      anyOf:
 #      - type: string
@@ -1972,15 +1972,15 @@ components:
 #      - type: string
         enum:
           - MA_PDU_REQUEST
-          - MA_PDU_ NETWORK_UPGRADE ALLOWED
+          - MA_PDU_NETWORK_UPGRADE_ALLOWED
         type: string
     AtsssCapability:
-#      anyOf:
-#      - type: string
+      anyOf:
+      - type: string
         enum:
           - MPTCP_ATSSS_LL_WITH_ASMODE_UL
           - MPTCP_ATSSS_LL_WITH_ASMODE_DLUL
           - ATSSS_LL
           - MPTCP_ATSSS_LL
-       type: string
+      - type: string
 #
