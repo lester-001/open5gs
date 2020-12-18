@@ -30,10 +30,10 @@ ogs_sbi_request_t *smf_npcf_smpolicycontrol_build_create(
     ogs_sbi_server_t *server = NULL;
 
     OpenAPI_sm_policy_context_data_t SmPolicyContextData;
-    OpenAPI_snssai_t sNssai;
     OpenAPI_ambr_t SubsSessAmbr;
     OpenAPI_subscribed_default_qos_t SubsDefQos;
     OpenAPI_arp_t Arp;
+    OpenAPI_snssai_t sNssai;
 
     ogs_assert(sess);
     ogs_assert(sess->sm_context_ref);
@@ -56,6 +56,18 @@ ogs_sbi_request_t *smf_npcf_smpolicycontrol_build_create(
     SmPolicyContextData.pdu_session_type = sess->pdn.pdn_type;
     ogs_assert(sess->dnn);
     SmPolicyContextData.dnn = sess->dnn;
+
+    server = ogs_list_first(&ogs_sbi_self()->server_list);
+    ogs_assert(server);
+
+    memset(&header, 0, sizeof(header));
+    header.service.name = (char *)OGS_SBI_SERVICE_NAME_NSMF_CALLBACK;
+    header.api.version = (char *)OGS_SBI_API_V1;
+    header.resource.component[0] =
+            (char *)OGS_SBI_RESOURCE_NAME_SM_POLICY_NOTIFY;
+    header.resource.component[1] = sess->sm_context_ref;
+    SmPolicyContextData.notification_uri = ogs_sbi_server_uri(server, &header);
+    ogs_assert(SmPolicyContextData.notification_uri);
 
     memset(&SubsSessAmbr, 0, sizeof(SubsSessAmbr));
     if (OGS_SBI_FEATURES_IS_SET(sess->smpolicycontrol_features,
@@ -102,18 +114,6 @@ ogs_sbi_request_t *smf_npcf_smpolicycontrol_build_create(
     sNssai.sst = sess->s_nssai.sst;
     sNssai.sd = ogs_s_nssai_sd_to_string(sess->s_nssai.sd);
     SmPolicyContextData.slice_info = &sNssai;
-
-    server = ogs_list_first(&ogs_sbi_self()->server_list);
-    ogs_assert(server);
-
-    memset(&header, 0, sizeof(header));
-    header.service.name = (char *)OGS_SBI_SERVICE_NAME_NSMF_CALLBACK;
-    header.api.version = (char *)OGS_SBI_API_V1;
-    header.resource.component[0] =
-            (char *)OGS_SBI_RESOURCE_NAME_SM_POLICY_NOTIFY;
-    header.resource.component[1] = sess->sm_context_ref;
-    SmPolicyContextData.notification_uri = ogs_sbi_server_uri(server, &header);
-    ogs_assert(SmPolicyContextData.notification_uri);
 
     message.SmPolicyContextData = &SmPolicyContextData;
 
