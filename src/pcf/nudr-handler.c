@@ -82,6 +82,7 @@ bool pcf_nudr_dr_handle_query_am_data(
         TriggerList = OpenAPI_list_create();
         ogs_assert(TriggerList);
 
+        memset(&UeAmbr, 0, sizeof(UeAmbr));
         if (OGS_SBI_FEATURES_IS_SET(pcf_ue->am_policy_control_features,
                     OGS_SBI_NPCF_AM_POLICY_CONTROL_UE_AMBR_AUTHORIZATION)) {
             if (pcf_ue->subscribed_ue_ambr) {
@@ -101,7 +102,6 @@ bool pcf_nudr_dr_handle_query_am_data(
                             (void *)OpenAPI_request_trigger_UE_AMBR_CH);
                 }
 
-                memset(&UeAmbr, 0, sizeof(UeAmbr));
                 UeAmbr.uplink = ogs_sbi_bitrate_to_string(
                         subscription_data.ambr.uplink, OGS_SBI_BITRATE_KBPS);
                 UeAmbr.downlink = ogs_sbi_bitrate_to_string(
@@ -135,8 +135,11 @@ bool pcf_nudr_dr_handle_query_am_data(
         ogs_free(PolicyAssociation.supp_feat);
 
         OpenAPI_list_free(TriggerList);
-        ogs_free(UeAmbr.uplink);
-        ogs_free(UeAmbr.downlink);
+
+        if (UeAmbr.uplink)
+            ogs_free(UeAmbr.uplink);
+        if (UeAmbr.downlink)
+            ogs_free(UeAmbr.downlink);
 
         return true;
 
