@@ -67,8 +67,6 @@ struct pcf_ue_s {
     ogs_sbi_object_t sbi;
     ogs_fsm_t sm;
 
-    OpenAPI_policy_association_request_t *policy_association_request;
-
     char *association_id;
     char *supi;
 
@@ -79,7 +77,8 @@ struct pcf_ue_s {
 
     uint64_t am_policy_control_features; /* SBI Features */
 
-    ogs_bitrate_t authorized_ue_ambr;
+    OpenAPI_policy_association_request_t *policy_association_request;
+    OpenAPI_ambr_t *subscribed_ue_ambr;
 
     ogs_list_t sess_list;
 };
@@ -99,8 +98,8 @@ struct pcf_sess_s {
 
     uint64_t smpolicycontrol_features; /* SBI Features */
 
-    ogs_bitrate_t authorized_sess_ambr;
-    ogs_pdn_t pdn;
+    OpenAPI_ambr_t *subscribed_sess_ambr;
+    OpenAPI_subscribed_default_qos_t *subscribed_default_qos;
 
     /* Related Context */
     pcf_ue_t *pcf_ue;

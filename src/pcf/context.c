@@ -170,6 +170,8 @@ void pcf_ue_remove(pcf_ue_t *pcf_ue)
     pcf_sess_remove_all(pcf_ue);
 
     OpenAPI_policy_association_request_free(pcf_ue->policy_association_request);
+    if (pcf_ue->subscribed_ue_ambr)
+        OpenAPI_ambr_free(pcf_ue->subscribed_ue_ambr);
 
     ogs_assert(pcf_ue->association_id);
     ogs_free(pcf_ue->association_id);
@@ -268,6 +270,11 @@ void pcf_sess_remove(pcf_sess_t *sess)
 
     if (sess->notification_uri)
         ogs_free(sess->notification_uri);
+
+    if (sess->subscribed_sess_ambr)
+        OpenAPI_ambr_free(sess->subscribed_sess_ambr);
+    if (sess->subscribed_default_qos)
+        OpenAPI_subscribed_default_qos_free(sess->subscribed_default_qos);
 
     ogs_pool_free(&pcf_sess_pool, sess);
 }

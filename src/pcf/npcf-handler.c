@@ -26,7 +26,6 @@ bool pcf_npcf_am_policy_contrtol_handle_create(pcf_ue_t *pcf_ue,
 {
     OpenAPI_policy_association_request_t *PolicyAssociationRequest = NULL;
     OpenAPI_guami_t *Guami = NULL;
-    OpenAPI_ambr_t *UeAmbr = NULL;
 
     uint64_t supported_features = 0;
 
@@ -78,14 +77,6 @@ bool pcf_npcf_am_policy_contrtol_handle_create(pcf_ue_t *pcf_ue,
         ogs_sbi_parse_guami(&pcf_ue->guami, PolicyAssociationRequest->guami);
     }
 
-    UeAmbr = PolicyAssociationRequest->ue_ambr;
-    if (UeAmbr) {
-        pcf_ue->authorized_ue_ambr.uplink =
-            ogs_sbi_bitrate_from_string(UeAmbr->uplink);
-        pcf_ue->authorized_ue_ambr.downlink =
-            ogs_sbi_bitrate_from_string(UeAmbr->downlink);
-    }
-
     if (PolicyAssociationRequest->rat_type)
         pcf_ue->rat_type = PolicyAssociationRequest->rat_type;
 
@@ -93,6 +84,10 @@ bool pcf_npcf_am_policy_contrtol_handle_create(pcf_ue_t *pcf_ue,
         OpenAPI_policy_association_request_copy(
                 pcf_ue->policy_association_request,
                 message->PolicyAssociationRequest);
+
+    if (PolicyAssociationRequest->ue_ambr)
+        pcf_ue->subscribed_ue_ambr = OpenAPI_ambr_copy(
+                pcf_ue->subscribed_ue_ambr, PolicyAssociationRequest->ue_ambr);
 
     pcf_ue_sbi_discover_and_send(OpenAPI_nf_type_UDR, pcf_ue, stream, NULL,
             pcf_nudr_dr_build_query_am_data);
@@ -109,8 +104,6 @@ bool pcf_npcf_smpolicycontrtol_handle_create(pcf_sess_t *sess,
 
     OpenAPI_sm_policy_context_data_t *SmPolicyContextData = NULL;
     OpenAPI_snssai_t *sliceInfo = NULL;
-    OpenAPI_ambr_t *SubsSessAmbr = NULL;
-    OpenAPI_subscribed_default_qos_t *SubsDefQos = NULL;
 
     uint64_t supported_features = 0;
 
@@ -189,35 +182,13 @@ bool pcf_npcf_smpolicycontrtol_handle_create(pcf_sess_t *sess,
     sess->s_nssai.sst = sliceInfo->sst;
     sess->s_nssai.sd = ogs_s_nssai_sd_from_string(sliceInfo->sd);
 
-    SubsSessAmbr = SmPolicyContextData->subs_sess_ambr;
-    if (SubsSessAmbr) {
-        sess->authorized_sess_ambr.uplink =
-            ogs_sbi_bitrate_from_string(SubsSessAmbr->uplink);
-        sess->authorized_sess_ambr.downlink =
-            ogs_sbi_bitrate_from_string(SubsSessAmbr->downlink);
-    }
+    if (SmPolicyContextData->subs_sess_ambr)
+        sess->subscribed_sess_ambr = OpenAPI_ambr_copy(
+            sess->subscribed_sess_ambr, SmPolicyContextData->subs_sess_ambr);
 
-    SubsDefQos = SmPolicyContextData->subs_def_qos;
-    if (SubsDefQos) {
-        sess->pdn.qos.qci = SubsDefQos->_5qi;
-        sess->pdn.qos.arp.priority_level = SubsDefQos->priority_level;
-        sess->pdn.qos.arp.pre_emption_capability =
-            OGS_PDN_PRE_EMPTION_CAPABILITY_DISABLED;
-        sess->pdn.qos.arp.pre_emption_vulnerability =
-            OGS_PDN_PRE_EMPTION_VULNERABILITY_DISABLED;
-        if (SubsDefQos->arp) {
-            sess->pdn.qos.arp.priority_level =
-                    SubsDefQos->arp->priority_level;
-            if (SubsDefQos->arp->preempt_cap ==
-                    OpenAPI_preemption_capability_MAY_PREEMPT)
-                sess->pdn.qos.arp.pre_emption_capability =
-                    OGS_PDN_PRE_EMPTION_CAPABILITY_ENABLED;
-            if (SubsDefQos->arp->preempt_vuln ==
-                    OpenAPI_preemption_vulnerability_PREEMPTABLE)
-                sess->pdn.qos.arp.pre_emption_vulnerability =
-                    OGS_PDN_PRE_EMPTION_VULNERABILITY_ENABLED;
-        }
-    }
+    if (SmPolicyContextData->subs_def_qos)
+        sess->subscribed_default_qos = OpenAPI_subscribed_default_qos_copy(
+            sess->subscribed_default_qos, SmPolicyContextData->subs_def_qos);
 
     pcf_sess_sbi_discover_and_send(OpenAPI_nf_type_UDR, sess, stream, NULL,
             pcf_nudr_dr_build_query_sm_data);

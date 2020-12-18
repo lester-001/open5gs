@@ -84,28 +84,30 @@ bool pcf_nudr_dr_handle_query_am_data(
 
         if (OGS_SBI_FEATURES_IS_SET(pcf_ue->am_policy_control_features,
                     OGS_SBI_NPCF_AM_POLICY_CONTROL_UE_AMBR_AUTHORIZATION)) {
-            if ((pcf_ue->authorized_ue_ambr.uplink &&
-                 (pcf_ue->authorized_ue_ambr.uplink / 1024) !=
-                 (subscription_data.ambr.uplink / 1024)) ||
-                (pcf_ue->authorized_ue_ambr.downlink &&
-                 (pcf_ue->authorized_ue_ambr.downlink / 1024) !=
-                 (subscription_data.ambr.downlink / 1024))) {
+            if (pcf_ue->subscribed_ue_ambr) {
+                ogs_bitrate_t subscribed_ue_ambr;
 
-                pcf_ue->authorized_ue_ambr.uplink =
-                    subscription_data.ambr.uplink;
-                pcf_ue->authorized_ue_ambr.downlink =
-                    subscription_data.ambr.downlink;
+                subscribed_ue_ambr.uplink = ogs_sbi_bitrate_from_string(
+                        pcf_ue->subscribed_ue_ambr->uplink);
+                subscribed_ue_ambr.downlink = ogs_sbi_bitrate_from_string(
+                        pcf_ue->subscribed_ue_ambr->downlink);
 
-                OpenAPI_list_add(TriggerList,
-                        (void *)OpenAPI_request_trigger_UE_AMBR_CH);
+                if (((subscribed_ue_ambr.uplink / 1024) !=
+                     (subscription_data.ambr.uplink / 1024)) ||
+                    ((subscribed_ue_ambr.downlink / 1024) !=
+                     (subscription_data.ambr.downlink / 1024))) {
+
+                    OpenAPI_list_add(TriggerList,
+                            (void *)OpenAPI_request_trigger_UE_AMBR_CH);
+                }
+
+                memset(&UeAmbr, 0, sizeof(UeAmbr));
+                UeAmbr.uplink = ogs_sbi_bitrate_to_string(
+                        subscription_data.ambr.uplink, OGS_SBI_BITRATE_KBPS);
+                UeAmbr.downlink = ogs_sbi_bitrate_to_string(
+                        subscription_data.ambr.downlink, OGS_SBI_BITRATE_KBPS);
+                PolicyAssociation.ue_ambr = &UeAmbr;
             }
-
-            memset(&UeAmbr, 0, sizeof(UeAmbr));
-            UeAmbr.uplink = ogs_sbi_bitrate_to_string(
-                    subscription_data.ambr.uplink, OGS_SBI_BITRATE_KBPS);
-            UeAmbr.downlink = ogs_sbi_bitrate_to_string(
-                    subscription_data.ambr.downlink, OGS_SBI_BITRATE_KBPS);
-            PolicyAssociation.ue_ambr = &UeAmbr;
         }
 
         if (TriggerList->count)
@@ -250,65 +252,77 @@ bool pcf_nudr_dr_handle_query_sm_data(
 
         if (OGS_SBI_FEATURES_IS_SET(sess->smpolicycontrol_features,
                     OGS_SBI_NPCF_SMPOLICYCONTROL_DN_AUTHORIZATION)) {
-            if ((sess->authorized_sess_ambr.uplink &&
-                 (sess->authorized_sess_ambr.uplink / 1024) !=
-                 (pdn->ambr.uplink / 1024)) ||
-                (sess->authorized_sess_ambr.downlink &&
-                 (sess->authorized_sess_ambr.downlink / 1024) !=
-                 (pdn->ambr.downlink / 1024))) {
+            if (sess->subscribed_sess_ambr) {
+                ogs_bitrate_t subscribed_sess_ambr;
 
-                sess->authorized_sess_ambr.uplink = pdn->ambr.uplink;
-                sess->authorized_sess_ambr.downlink = pdn->ambr.downlink;
+                subscribed_sess_ambr.uplink = ogs_sbi_bitrate_from_string(
+                        sess->subscribed_sess_ambr->uplink);
+                subscribed_sess_ambr.downlink = ogs_sbi_bitrate_from_string(
+                        sess->subscribed_sess_ambr->downlink);
+                if (((subscribed_sess_ambr.uplink / 1024) !=
+                     (pdn->ambr.uplink / 1024)) ||
+                    ((subscribed_sess_ambr.downlink / 1024) !=
+                     (pdn->ambr.downlink / 1024))) {
 
-                OpenAPI_list_add(PolicyCtrlReqTriggers,
-                    (void *)OpenAPI_policy_control_request_trigger_SE_AMBR_CH);
+                    OpenAPI_list_add(PolicyCtrlReqTriggers,
+                        (void *)OpenAPI_policy_control_request_trigger_SE_AMBR_CH);
+                }
+
+                memset(&AuthSessAmbr, 0, sizeof(AuthSessAmbr));
+                AuthSessAmbr.uplink = ogs_sbi_bitrate_to_string(
+                        pdn->ambr.uplink, OGS_SBI_BITRATE_KBPS);
+                AuthSessAmbr.downlink = ogs_sbi_bitrate_to_string(
+                        pdn->ambr.downlink, OGS_SBI_BITRATE_KBPS);
+                SessionRule->auth_sess_ambr = &AuthSessAmbr;
+            }
+        }
+
+        if (sess->subscribed_default_qos) {
+            bool triggered = false;
+
+            memset(&Arp, 0, sizeof(Arp));
+            if (pdn->qos.arp.pre_emption_capability ==
+                    OGS_PDN_PRE_EMPTION_CAPABILITY_ENABLED)
+                Arp.preempt_cap = OpenAPI_preemption_capability_MAY_PREEMPT;
+            else
+                Arp.preempt_cap = OpenAPI_preemption_capability_NOT_PREEMPT;
+            if (pdn->qos.arp.pre_emption_vulnerability ==
+                    OGS_PDN_PRE_EMPTION_CAPABILITY_ENABLED)
+                Arp.preempt_vuln = OpenAPI_preemption_vulnerability_PREEMPTABLE;
+            else
+                Arp.preempt_vuln = OpenAPI_preemption_vulnerability_NOT_PREEMPTABLE;
+            Arp.priority_level = pdn->qos.arp.priority_level;
+
+            memset(&AuthDefQos, 0, sizeof(AuthDefQos));
+            AuthDefQos.arp = &Arp;
+            AuthDefQos._5qi = pdn->qos.qci;
+            AuthDefQos.priority_level = pdn->qos.arp.priority_level;
+
+            SessionRule->auth_def_qos = &AuthDefQos;
+
+            if (sess->subscribed_default_qos->_5qi != AuthDefQos._5qi)
+                triggered = true;
+            if (sess->subscribed_default_qos->priority_level !=
+                    AuthDefQos.priority_level)
+                triggered = true;
+            if (sess->subscribed_default_qos->arp) {
+                if (sess->subscribed_default_qos->arp->priority_level !=
+                        Arp.priority_level)
+                    triggered = true;
+                if (sess->subscribed_default_qos->arp->preempt_cap !=
+                        Arp.preempt_cap)
+                    triggered = true;
+                if (sess->subscribed_default_qos->arp->preempt_vuln !=
+                        Arp.preempt_vuln)
+                    triggered = true;
+
             }
 
-            memset(&AuthSessAmbr, 0, sizeof(AuthSessAmbr));
-            AuthSessAmbr.uplink = ogs_sbi_bitrate_to_string(
-                    pdn->ambr.uplink, OGS_SBI_BITRATE_KBPS);
-            AuthSessAmbr.downlink = ogs_sbi_bitrate_to_string(
-                    pdn->ambr.downlink, OGS_SBI_BITRATE_KBPS);
-            SessionRule->auth_sess_ambr = &AuthSessAmbr;
+            if (triggered)
+                OpenAPI_list_add(PolicyCtrlReqTriggers,
+                    (void *)OpenAPI_policy_control_request_trigger_DEF_QOS_CH);
+
         }
-
-        if ((sess->pdn.qos.qci && sess->pdn.qos.qci != pdn->qos.qci) ||
-            (sess->pdn.qos.arp.priority_level &&
-             sess->pdn.qos.arp.priority_level != pdn->qos.arp.priority_level) ||
-            sess->pdn.qos.arp.pre_emption_capability !=
-                pdn->qos.arp.pre_emption_capability ||
-            sess->pdn.qos.arp.pre_emption_vulnerability !=
-                pdn->qos.arp.pre_emption_vulnerability) {
-            sess->pdn.qos.qci = pdn->qos.qci;
-            sess->pdn.qos.arp.priority_level = pdn->qos.arp.priority_level;
-            sess->pdn.qos.arp.pre_emption_capability =
-                pdn->qos.arp.pre_emption_capability;
-            sess->pdn.qos.arp.pre_emption_vulnerability =
-                pdn->qos.arp.pre_emption_vulnerability;
-
-            OpenAPI_list_add(PolicyCtrlReqTriggers,
-                (void *)OpenAPI_policy_control_request_trigger_DEF_QOS_CH);
-        }
-
-        memset(&Arp, 0, sizeof(Arp));
-        if (sess->pdn.qos.arp.pre_emption_capability ==
-                OGS_PDN_PRE_EMPTION_CAPABILITY_ENABLED)
-            Arp.preempt_cap = OpenAPI_preemption_capability_MAY_PREEMPT;
-        else
-            Arp.preempt_cap = OpenAPI_preemption_capability_NOT_PREEMPT;
-        if (sess->pdn.qos.arp.pre_emption_vulnerability ==
-                OGS_PDN_PRE_EMPTION_CAPABILITY_ENABLED)
-            Arp.preempt_vuln = OpenAPI_preemption_vulnerability_PREEMPTABLE;
-        else
-            Arp.preempt_vuln = OpenAPI_preemption_vulnerability_NOT_PREEMPTABLE;
-        Arp.priority_level = sess->pdn.qos.arp.priority_level;
-
-        memset(&AuthDefQos, 0, sizeof(AuthDefQos));
-        AuthDefQos.arp = &Arp;
-        AuthDefQos._5qi = sess->pdn.qos.qci;
-        AuthDefQos.priority_level = sess->pdn.qos.arp.priority_level;
-
-        SessionRule->auth_def_qos = &AuthDefQos;
 
         if (PolicyCtrlReqTriggers->count)
             SmPolicyDecision.policy_ctrl_req_triggers = PolicyCtrlReqTriggers;
