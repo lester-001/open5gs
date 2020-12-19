@@ -161,7 +161,7 @@ cleanup:
 bool pcf_nudr_dr_handle_query_sm_data(
     pcf_sess_t *sess, ogs_sbi_stream_t *stream, ogs_sbi_message_t *recvmsg)
 {
-    int i, rv, status = 0;
+    int i, j, rv, status = 0;
     char *strerror = NULL;
     pcf_ue_t *pcf_ue = NULL;
     ogs_sbi_server_t *server = NULL;
@@ -189,7 +189,7 @@ bool pcf_nudr_dr_handle_query_sm_data(
 
         OpenAPI_sm_policy_decision_t SmPolicyDecision;
 
-        OpenAPI_lnode_t *node = NULL;
+        OpenAPI_lnode_t *node = NULL, *node2 = NULL;
 
         OpenAPI_list_t *SessRuleList = NULL;
         OpenAPI_map_t *SessRuleMap = NULL;
@@ -202,6 +202,7 @@ bool pcf_nudr_dr_handle_query_sm_data(
         OpenAPI_list_t *PccRuleList = NULL;
         OpenAPI_map_t *PccRuleMap = NULL;
         OpenAPI_pcc_rule_t *PccRule = NULL;
+        OpenAPI_flow_information_t *FlowInformation = NULL;
 
         OpenAPI_list_t *PolicyCtrlReqTriggers = NULL;
 
@@ -354,13 +355,48 @@ bool pcf_nudr_dr_handle_query_sm_data(
         ogs_assert(PccRuleList);
 
         for (i = 0; i < session_data.num_of_pcc_rule; i++) {
+            OpenAPI_list_t *FlowInformationList = NULL;
             ogs_pcc_rule_t *pcc_rule = &session_data.pcc_rule[i];
+
             ogs_assert(pcc_rule);
 
             PccRule = ogs_calloc(1, sizeof(*PccRule));
             ogs_assert(PccRule);
 
             PccRule->pcc_rule_id = pcc_rule->id;
+            PccRule->precedence = pcc_rule->precedence;
+
+            FlowInformationList = OpenAPI_list_create();
+            ogs_assert(FlowInformationList);
+
+            for (j = 0; j < pcc_rule->num_of_flow; j++) {
+                ogs_flow_t *flow = &pcc_rule->flow[j];
+                ogs_assert(flow);
+
+                FlowInformation = ogs_calloc(1, sizeof(*FlowInformation));
+                ogs_assert(FlowInformation);
+
+                if (flow->direction == OGS_FLOW_UPLINK_ONLY)
+                    FlowInformation->flow_direction =
+                        OpenAPI_flow_direction_UPLINK;
+                else if (flow->direction == OGS_FLOW_DOWNLINK_ONLY)
+                    FlowInformation->flow_direction =
+                        OpenAPI_flow_direction_DOWNLINK;
+                else {
+                    ogs_fatal("Invalid direction [%d]", flow->direction);
+                    ogs_assert_if_reached();
+                }
+
+                ogs_assert(flow->description);
+                FlowInformation->flow_description = flow->description;
+
+                OpenAPI_list_add(FlowInformationList, FlowInformation);
+            }
+
+            if (FlowInformationList->count)
+                PccRule->flow_infos = FlowInformationList;
+            else
+                OpenAPI_list_free(FlowInformationList);
 
             PccRuleMap = OpenAPI_map_create(PccRule->pcc_rule_id, PccRule);
             ogs_assert(PccRuleMap);
@@ -416,6 +452,15 @@ bool pcf_nudr_dr_handle_query_sm_data(
             if (PccRuleMap) {
                 PccRule = PccRuleMap->value;
                 if (PccRule) {
+                    if (PccRule->flow_infos) {
+                        OpenAPI_list_for_each(PccRule->flow_infos, node2) {
+                            FlowInformation = node2->data;
+                            if (FlowInformation) {
+                                ogs_free(FlowInformation);
+                            }
+                        }
+                        OpenAPI_list_free(PccRule->flow_infos);
+                    }
                     ogs_free(PccRule);
                 }
                 ogs_free(PccRuleMap);
