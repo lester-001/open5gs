@@ -324,8 +324,8 @@ typedef struct ogs_pcc_rule_s {
 #define OGS_PCC_RULE_TYPE_REMOVE                2
     uint8_t type;
 
-#define OGS_MAX_PCC_RULE_NAME_LEN               256
-    char *name;
+    char *id;   /* 5GC */
+    char *name; /* EPC */
 
 /* Num of Flow per PCC Rule */
 #define OGS_MAX_NUM_OF_FLOW                     8
@@ -353,6 +353,9 @@ typedef struct ogs_pcc_rule_s {
         if ((__sRC)->name) { \
             (__dST)->name = ogs_strdup((__sRC)->name); \
             ogs_assert((__dST)->name); \
+        } else if ((__sRC)->id) { \
+            (__dST)->id = ogs_strdup((__sRC)->id); \
+            ogs_assert((__dST)->id); \
         } else \
             ogs_assert_if_reached(); \
         for (__iNDEX = 0; __iNDEX < (__sRC)->num_of_flow; __iNDEX++) { \
@@ -371,6 +374,8 @@ typedef struct ogs_pcc_rule_s {
     do { \
         int __pCCrULE_iNDEX; \
         ogs_assert((__pCCrULE)); \
+        if ((__pCCrULE)->id) \
+            ogs_free((__pCCrULE)->id); \
         if ((__pCCrULE)->name) \
             ogs_free((__pCCrULE)->name); \
         for (__pCCrULE_iNDEX = 0; \
