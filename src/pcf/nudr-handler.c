@@ -170,6 +170,8 @@ bool pcf_nudr_dr_handle_query_sm_data(
     ogs_sbi_header_t header;
     ogs_sbi_response_t *response = NULL;
 
+    ogs_session_data_t session_data;
+
     ogs_assert(sess);
     pcf_ue = sess->pcf_ue;
     ogs_assert(pcf_ue);
@@ -179,9 +181,10 @@ bool pcf_nudr_dr_handle_query_sm_data(
 
     ogs_assert(recvmsg);
 
+    memset(&session_data, 0, sizeof(ogs_session_data_t));
+
     SWITCH(recvmsg->h.resource.component[3])
     CASE(OGS_SBI_RESOURCE_NAME_SM_DATA)
-        ogs_session_data_t session_data;
         ogs_pdn_t *pdn = NULL;
 
         OpenAPI_sm_policy_decision_t SmPolicyDecision;
@@ -385,6 +388,8 @@ bool pcf_nudr_dr_handle_query_sm_data(
         if (SmPolicyDecision.supp_feat)
             ogs_free(SmPolicyDecision.supp_feat);
 
+        ogs_session_data_free(&session_data);
+
         return true;
 
     DEFAULT
@@ -397,6 +402,8 @@ cleanup:
     ogs_error("%s", strerror);
     ogs_sbi_server_send_error(stream, status, recvmsg, strerror, NULL);
     ogs_free(strerror);
+
+    ogs_session_data_free(&session_data);
 
     return false;
 }
