@@ -161,7 +161,7 @@ cleanup:
 bool pcf_nudr_dr_handle_query_sm_data(
     pcf_sess_t *sess, ogs_sbi_stream_t *stream, ogs_sbi_message_t *recvmsg)
 {
-    int rv, status = 0;
+    int i, rv, status = 0;
     char *strerror = NULL;
     pcf_ue_t *pcf_ue = NULL;
     ogs_sbi_server_t *server = NULL;
@@ -200,6 +200,8 @@ bool pcf_nudr_dr_handle_query_sm_data(
         OpenAPI_arp_t Arp;
 
         OpenAPI_list_t *PccRuleList = NULL;
+        OpenAPI_map_t *PccRuleMap = NULL;
+        OpenAPI_pcc_rule_t *PccRule = NULL;
 
         OpenAPI_list_t *PolicyCtrlReqTriggers = NULL;
 
@@ -247,6 +249,9 @@ bool pcf_nudr_dr_handle_query_sm_data(
         PolicyCtrlReqTriggers = OpenAPI_list_create();
         ogs_assert(PolicyCtrlReqTriggers);
 
+        /**************************************************************
+         * Session Rule
+         *************************************************************/
         SessRuleList = OpenAPI_list_create();
         ogs_assert(SessRuleList);
 
@@ -342,6 +347,30 @@ bool pcf_nudr_dr_handle_query_sm_data(
         if (SessRuleList->count)
             SmPolicyDecision.sess_rules = SessRuleList;
 
+        /**************************************************************
+         * PCC Rule
+         *************************************************************/
+        PccRuleList = OpenAPI_list_create();
+        ogs_assert(PccRuleList);
+
+        for (i = 0; i < session_data.num_of_pcc_rule; i++) {
+            ogs_pcc_rule_t *pcc_rule = &session_data.pcc_rule[i];
+            ogs_assert(pcc_rule);
+
+            PccRule = ogs_calloc(1, sizeof(*PccRule));
+            ogs_assert(PccRule);
+
+            PccRule->pcc_rule_id = pcc_rule->id;
+
+            PccRuleMap = OpenAPI_map_create(PccRule->pcc_rule_id, PccRule);
+            ogs_assert(PccRuleMap);
+
+            OpenAPI_list_add(PccRuleList, PccRuleMap);
+        }
+
+        if (PccRuleList->count)
+            SmPolicyDecision.pcc_rules = PccRuleList;
+
         if (sess->smpolicycontrol_features) {
             SmPolicyDecision.supp_feat =
                 ogs_uint64_to_string(sess->smpolicycontrol_features);
@@ -380,8 +409,19 @@ bool pcf_nudr_dr_handle_query_sm_data(
                 ogs_free(SessRuleMap);
             }
         }
-
         OpenAPI_list_free(SessRuleList);
+
+        OpenAPI_list_for_each(PccRuleList, node) {
+            PccRuleMap = node->data;
+            if (PccRuleMap) {
+                PccRule = PccRuleMap->value;
+                if (PccRule) {
+                    ogs_free(PccRule);
+                }
+                ogs_free(PccRuleMap);
+            }
+        }
+        OpenAPI_list_free(PccRuleList);
 
         OpenAPI_list_free(PolicyCtrlReqTriggers);
 
