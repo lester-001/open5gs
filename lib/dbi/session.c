@@ -37,9 +37,16 @@ int ogs_dbi_session_data(char *supi, char *dnn,
     char *supi_type = NULL;
     char *supi_id = NULL;
 
+    ogs_session_data_t zero_data;
+
     ogs_assert(supi);
     ogs_assert(dnn);
     ogs_assert(session_data);
+
+    memset(&zero_data, 0, sizeof(zero_data));
+
+    /* session_data should be initialized to zero */
+    ogs_assert(memcmp(session_data, &zero_data, sizeof(zero_data)) == 0);
 
     supi_type = ogs_id_get_type(supi);
     ogs_assert(supi_type);
@@ -333,15 +340,26 @@ int ogs_dbi_session_data(char *supi, char *dnn,
                                     pcc_rule->num_of_flow = flow_index;
                                 }
                             }
-                            /* Charing-Rule-Name is automatically configured */
+
+                            /* EPC: Charing-Rule-Name */
                             if (pcc_rule->name) {
-                                ogs_error("PCC Rule Name has already "
-                                        "been defined");
+                                ogs_error(
+                                    "PCC Rule Name has already been defined");
                                 ogs_free(pcc_rule->name);
                             }
                             pcc_rule->name = ogs_msprintf(
                                     "%s%d", dnn, pcc_rule_index+1);
                             ogs_assert(pcc_rule->name);
+
+                            /* 5GC: PCC-Rule-Id */
+                            if (pcc_rule->id) {
+                                ogs_error(
+                                    "PCC Rule Id has already been defined");
+                                ogs_free(pcc_rule->id);
+                            }
+                            pcc_rule->id = ogs_msprintf("%d", pcc_rule_index+1);
+                            ogs_assert(pcc_rule->id);
+
                             pcc_rule->precedence = pcc_rule_index+1;
                             pcc_rule->flow_status = OGS_FLOW_STATUS_ENABLED;
                             pcc_rule_index++;

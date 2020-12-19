@@ -353,11 +353,11 @@ typedef struct ogs_pcc_rule_s {
         if ((__sRC)->name) { \
             (__dST)->name = ogs_strdup((__sRC)->name); \
             ogs_assert((__dST)->name); \
-        } else if ((__sRC)->id) { \
+        } \
+        if ((__sRC)->id) { \
             (__dST)->id = ogs_strdup((__sRC)->id); \
             ogs_assert((__dST)->id); \
-        } else \
-            ogs_assert_if_reached(); \
+        } \
         for (__iNDEX = 0; __iNDEX < (__sRC)->num_of_flow; __iNDEX++) { \
             (__dST)->flow[__iNDEX].direction = (__sRC)->flow[__iNDEX].direction; \
             (__dST)->flow[__iNDEX].description = \
