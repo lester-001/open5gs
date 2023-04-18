@@ -27,7 +27,7 @@
 int amf_namf_comm_handle_n1_n2_message_transfer(
         ogs_sbi_stream_t *stream, ogs_sbi_message_t *recvmsg)
 {
-    int status;
+    int status, r;
 
     amf_ue_t *amf_ue = NULL;
     ran_ue_t *ran_ue = NULL;
@@ -206,7 +206,9 @@ int amf_namf_comm_handle_n1_n2_message_transfer(
                  * sm-context-ref is created in [1-CLIENT].
                  * So, the PDU session establishment accpet can be transmitted.
                  */
-                    ogs_expect(OGS_OK == ngap_send_to_ran_ue(ran_ue, ngapbuf));
+                    r = ngap_send_to_ran_ue(ran_ue, ngapbuf);
+                    ogs_expect(r == OGS_OK);
+                    ogs_assert(r != OGS_ERROR);
                 } else {
                     sess->pdu_session_establishment_accept = ngapbuf;
                 }
@@ -272,20 +274,28 @@ int amf_namf_comm_handle_n1_n2_message_transfer(
 
                 sendmsg.http.location = ogs_sbi_server_uri(server, &header);
 
-                /* Store Paging Info */
-                AMF_SESS_STORE_PAGING_INFO(
+                if (ogs_timer_running(
+                            amf_ue->implicit_deregistration.timer) == true) {
+                    ogs_warn("[%s] Paging failed. Stop", amf_ue->supi);
+                } else {
+                    /* Store Paging Info */
+                    AMF_SESS_STORE_PAGING_INFO(
                         sess, sendmsg.http.location,
                         N1N2MessageTransferReqData->n1n2_failure_txf_notif_uri);
 
-                /* Store N2 Transfer message */
-                AMF_SESS_STORE_N2_TRANSFER(
-                        sess, pdu_session_resource_setup_request, n2buf);
+                    /* Store N2 Transfer message */
+                    AMF_SESS_STORE_N2_TRANSFER(
+                            sess, pdu_session_resource_setup_request, n2buf);
 
-                ogs_assert(OGS_OK == ngap_send_paging(amf_ue));
+                    r = ngap_send_paging(amf_ue);
+                    ogs_expect(r == OGS_OK);
+                    ogs_assert(r != OGS_ERROR);
+                }
 
             } else if (CM_CONNECTED(amf_ue)) {
-                ogs_assert(OGS_OK ==
-                    nas_send_pdu_session_setup_request(sess, NULL, n2buf));
+                r = nas_send_pdu_session_setup_request(sess, NULL, n2buf);
+                ogs_expect(r == OGS_OK);
+                ogs_assert(r != OGS_ERROR);
 
             } else {
 
@@ -331,20 +341,28 @@ int amf_namf_comm_handle_n1_n2_message_transfer(
 
             sendmsg.http.location = ogs_sbi_server_uri(server, &header);
 
-            /* Store Paging Info */
-            AMF_SESS_STORE_PAGING_INFO(
-                    sess, sendmsg.http.location, NULL);
+            if (ogs_timer_running(
+                        amf_ue->implicit_deregistration.timer) == true) {
+                ogs_warn("[%s] Paging failed. Stop", amf_ue->supi);
+            } else {
+                /* Store Paging Info */
+                AMF_SESS_STORE_PAGING_INFO(
+                        sess, sendmsg.http.location, NULL);
 
-            /* Store 5GSM Message */
-            AMF_SESS_STORE_5GSM_MESSAGE(sess,
-                    OGS_NAS_5GS_PDU_SESSION_MODIFICATION_COMMAND,
-                    n1buf, n2buf);
+                /* Store 5GSM Message */
+                AMF_SESS_STORE_5GSM_MESSAGE(sess,
+                        OGS_NAS_5GS_PDU_SESSION_MODIFICATION_COMMAND,
+                        n1buf, n2buf);
 
-            ogs_assert(OGS_OK == ngap_send_paging(amf_ue));
+                r = ngap_send_paging(amf_ue);
+                ogs_expect(r == OGS_OK);
+                ogs_assert(r != OGS_ERROR);
+            }
 
         } else if (CM_CONNECTED(amf_ue)) {
-            ogs_expect(OGS_OK ==
-                nas_send_pdu_session_modification_command(sess, n1buf, n2buf));
+            r = nas_send_pdu_session_modification_command(sess, n1buf, n2buf);
+            ogs_expect(r == OGS_OK);
+            ogs_assert(r != OGS_ERROR);
 
         } else {
             ogs_fatal("[%s] Invalid AMF-UE state", amf_ue->supi);
@@ -359,10 +377,9 @@ int amf_namf_comm_handle_n1_n2_message_transfer(
             return OGS_ERROR;
         }
 
-        if (n1buf)
-            ogs_pkbuf_free(n1buf);
-
         if (CM_IDLE(amf_ue)) {
+            if (n1buf)
+                ogs_pkbuf_free(n1buf);
             if (n2buf)
                 ogs_pkbuf_free(n2buf);
 
@@ -376,8 +393,9 @@ int amf_namf_comm_handle_n1_n2_message_transfer(
             }
 
         } else if (CM_CONNECTED(amf_ue)) {
-            ogs_expect(OGS_OK ==
-                nas_send_pdu_session_release_command(sess, NULL, n2buf));
+            r = nas_send_pdu_session_release_command(sess, n1buf, n2buf);
+            ogs_expect(r == OGS_OK);
+            ogs_assert(r != OGS_ERROR);
         } else {
             ogs_fatal("[%s] Invalid AMF-UE state", amf_ue->supi);
             ogs_assert_if_reached();
@@ -480,11 +498,15 @@ int amf_namf_callback_handle_sm_context_status(
      * If NOTIFICATION comes after the CLIENT response is received,
      * sync is done. So, the session context can be removed.
      */
+    ogs_info("[%s:%d][%d:%d:%s] "
+            "/namf-callback/v1/{supi}/sm-context-status/{psi}",
+            amf_ue->supi, sess->psi,
+            sess->n1_released, sess->n2_released,
+            OpenAPI_resource_status_ToString(sess->resource_status));
+
     if (sess->n1_released == true &&
         sess->n2_released == true &&
         sess->resource_status == OpenAPI_resource_status_RELEASED) {
-
-        ogs_debug("[%s:%d] SM context remove", amf_ue->supi, sess->psi);
         amf_nsmf_pdusession_handle_release_sm_context(
                 sess, AMF_RELEASE_SM_CONTEXT_NO_STATE);
     }
@@ -499,44 +521,10 @@ cleanup:
     return OGS_OK;
 }
 
-static int network_deregister (
-        amf_ue_t *amf_ue, OpenAPI_deregistration_reason_e dereg_reason) {
-    if ((CM_CONNECTED(amf_ue)) &&
-        (OGS_FSM_CHECK(&amf_ue->sm, gmm_state_registered)))
-    {
-        amf_ue->network_initiated_de_reg = true;
-
-        ogs_assert(OGS_OK ==
-            nas_5gs_send_de_registration_request(amf_ue, dereg_reason));
-
-        amf_sbi_send_release_all_sessions(
-            amf_ue, AMF_RELEASE_SM_CONTEXT_NO_STATE);
-
-        if ((ogs_list_count(&amf_ue->sess_list) == 0) &&
-            (PCF_AM_POLICY_ASSOCIATED(amf_ue)))
-        {
-            ogs_assert(true ==
-                amf_ue_sbi_discover_and_send(
-                    OGS_SBI_SERVICE_TYPE_NPCF_AM_POLICY_CONTROL, NULL,
-                    amf_npcf_am_policy_control_build_delete, amf_ue, NULL));
-        }
-
-        OGS_FSM_TRAN(&amf_ue->sm, &gmm_state_de_registered);
-        return OGS_OK;
-    }
-    else if (CM_IDLE(amf_ue)) {
-        /* TODO: need to page UE */
-        /*ngap_send_paging(amf_ue);*/
-        return OGS_OK;
-    } else {
-      return OGS_ERROR;
-    }
-}
-
 int amf_namf_callback_handle_dereg_notify(
         ogs_sbi_stream_t *stream, ogs_sbi_message_t *recvmsg)
 {
-    int status = OGS_SBI_HTTP_STATUS_NO_CONTENT;
+    int r, state, status = OGS_SBI_HTTP_STATUS_NO_CONTENT;
 
     amf_ue_t *amf_ue = NULL;
 
@@ -568,8 +556,14 @@ int amf_namf_callback_handle_dereg_notify(
         goto cleanup;
     }
 
-    if (DeregistrationData->access_type != OpenAPI_access_type_3GPP_ACCESS)
-    {
+    if (DeregistrationData->dereg_reason ==
+            OpenAPI_deregistration_reason_NULL) {
+        status = OGS_SBI_HTTP_STATUS_BAD_REQUEST;
+        ogs_error("[%s] No Deregistraion Reason ", amf_ue->supi);
+        goto cleanup;
+    }
+
+    if (DeregistrationData->access_type != OpenAPI_access_type_3GPP_ACCESS) {
         status = OGS_SBI_HTTP_STATUS_BAD_REQUEST;
         ogs_error("[%s] Deregistration access type not 3GPP", amf_ue->supi);
         goto cleanup;
@@ -588,12 +582,55 @@ int amf_namf_callback_handle_dereg_notify(
      * session associated with non-emergency service as described in clause 4.3.4.
      */
 
-    if (network_deregister(
-            amf_ue, DeregistrationData->dereg_reason) == -1) {
-      status = OGS_SBI_HTTP_STATUS_BAD_REQUEST;
-      ogs_error("[%s] Deregistration notification for UE in wrong state",
-                amf_ue->supi);
-      goto cleanup;
+    /*
+     * - AMF_NETWORK_INITIATED_EXPLICIT_DE_REGISTERED
+     * 1. UDM_UECM_DeregistrationNotification
+     * 2. Deregistration request
+     * 3. UDM_SDM_Unsubscribe
+     * 4. UDM_UECM_Deregisration
+     * 5. PDU session release request
+     * 6. PDUSessionResourceReleaseCommand +
+     *    PDU session release command
+     * 7. PDUSessionResourceReleaseResponse
+     * 8. AM_Policy_Association_Termination
+     * 9.  Deregistration accept
+     * 10. Signalling Connecion Release
+     */
+    if (CM_CONNECTED(amf_ue)) {
+        r = nas_5gs_send_de_registration_request(
+                amf_ue,
+                DeregistrationData->dereg_reason,
+                OGS_5GMM_CAUSE_5GS_SERVICES_NOT_ALLOWED);
+        ogs_expect(r == OGS_OK);
+        ogs_assert(r != OGS_ERROR);
+
+        state = AMF_NETWORK_INITIATED_EXPLICIT_DE_REGISTERED;
+
+    } else if (CM_IDLE(amf_ue)) {
+        ogs_error("Not implemented : Use Implicit De-registration");
+
+        state = AMF_NETWORK_INITIATED_IMPLICIT_DE_REGISTERED;
+
+    } else {
+        ogs_fatal("Invalid State");
+        ogs_assert_if_reached();
+    }
+
+    if (UDM_SDM_SUBSCRIBED(amf_ue)) {
+        r = amf_ue_sbi_discover_and_send(
+                OGS_SBI_SERVICE_TYPE_NUDM_SDM, NULL,
+                amf_nudm_sdm_build_subscription_delete,
+                amf_ue, state, NULL);
+        ogs_expect(r == OGS_OK);
+        ogs_assert(r != OGS_ERROR);
+    } else if (PCF_AM_POLICY_ASSOCIATED(amf_ue)) {
+        r = amf_ue_sbi_discover_and_send(
+                OGS_SBI_SERVICE_TYPE_NPCF_AM_POLICY_CONTROL,
+                NULL,
+                amf_npcf_am_policy_control_build_delete,
+                amf_ue, state, NULL);
+        ogs_expect(r == OGS_OK);
+        ogs_assert(r != OGS_ERROR);
     }
 
 cleanup:
@@ -797,7 +834,7 @@ static int update_ambr(OpenAPI_change_item_t *item_change,
 int amf_namf_callback_handle_sdm_data_change_notify(
         ogs_sbi_stream_t *stream, ogs_sbi_message_t *recvmsg)
 {
-    int status = OGS_SBI_HTTP_STATUS_NO_CONTENT;
+    int r, state, status = OGS_SBI_HTTP_STATUS_NO_CONTENT;
 
     amf_ue_t *amf_ue = NULL;
 
@@ -818,13 +855,11 @@ int amf_namf_callback_handle_sdm_data_change_notify(
     ModificationNotification = recvmsg->ModificationNotification;
     if (!ModificationNotification) {
         status = OGS_SBI_HTTP_STATUS_BAD_REQUEST;
-        ogs_error("[%s] No ModificationNotification", amf_ue->supi);
+        ogs_error("No ModificationNotification");
         goto cleanup;
     }
 
-
-    OpenAPI_list_for_each(ModificationNotification->notify_items, node)
-    {
+    OpenAPI_list_for_each(ModificationNotification->notify_items, node) {
         OpenAPI_notify_item_t *item = node->data;
 
         char *saveptr = NULL;
@@ -854,12 +889,11 @@ int amf_namf_callback_handle_sdm_data_change_notify(
         CASE(OGS_SBI_RESOURCE_NAME_AM_DATA)
             OpenAPI_lnode_t *node_ci;
 
-            OpenAPI_list_for_each(item->changes, node_ci)
-            {
+            OpenAPI_list_for_each(item->changes, node_ci) {
                 OpenAPI_change_item_t *change_item = node_ci->data;
-                if (update_rat_res(change_item, amf_ue->rat_restrictions)
-                    || update_ambr(change_item, &amf_ue->ue_ambr,
-                                   &ambr_changed)) {
+                if (update_rat_res(change_item, amf_ue->rat_restrictions) ||
+                        update_ambr(change_item, &amf_ue->ue_ambr,
+                            &ambr_changed)) {
                     status = OGS_SBI_HTTP_STATUS_BAD_REQUEST;
                     goto cleanup;
                 }
@@ -878,25 +912,68 @@ int amf_namf_callback_handle_sdm_data_change_notify(
         res_name = NULL;
     }
 
-    if (amf_ue_is_rat_restricted(amf_ue)) {
-        if (network_deregister(amf_ue, OpenAPI_deregistration_reason_REREGISTRATION_REQUIRED) == -1) {
-            status = OGS_SBI_HTTP_STATUS_BAD_REQUEST;
-            ogs_error("[%s] Deregistration notification for UE in wrong state",
-                      amf_ue->supi);
-            goto cleanup;
+    if (amf_ue) {
+        ran_ue_t *ran_ue = ran_ue_cycle(amf_ue->ran_ue);
+        if ((!ran_ue) || (amf_ue_is_rat_restricted(amf_ue))) {
+
+            if (!ran_ue) {
+                ogs_error("NG context has already been removed");
+                /* ran_ue is required for amf_ue_is_rat_restricted() */
+
+                ogs_error("Not implemented : Use Implicit De-registration");
+                state = AMF_NETWORK_INITIATED_IMPLICIT_DE_REGISTERED;
+            }
+            else {
+                /*
+                * - AMF_NETWORK_INITIATED_EXPLICIT_DE_REGISTERED
+                * 1. UDM_UECM_DeregistrationNotification
+                * 2. Deregistration request
+                * 3. UDM_SDM_Unsubscribe
+                * 4. UDM_UECM_Deregistration
+                * 5. PDU session release request
+                * 6. PDUSessionResourceReleaseCommand +
+                *    PDU session release command
+                * 7. PDUSessionResourceReleaseResponse
+                * 8. AM_Policy_Association_Termination
+                * 9.  Deregistration accept
+                * 10. Signalling Connection Release
+                */
+                r = nas_5gs_send_de_registration_request(
+                        amf_ue,
+                        OpenAPI_deregistration_reason_REREGISTRATION_REQUIRED, 0);
+                ogs_expect(r == OGS_OK);
+                ogs_assert(r != OGS_ERROR);
+
+                state = AMF_NETWORK_INITIATED_EXPLICIT_DE_REGISTERED;
+            }
+
+            if (UDM_SDM_SUBSCRIBED(amf_ue)) {
+                r = amf_ue_sbi_discover_and_send(
+                        OGS_SBI_SERVICE_TYPE_NUDM_SDM, NULL,
+                        amf_nudm_sdm_build_subscription_delete,
+                        amf_ue, state, NULL);
+                ogs_expect(r == OGS_OK);
+                ogs_assert(r != OGS_ERROR);
+            } else if (PCF_AM_POLICY_ASSOCIATED(amf_ue)) {
+                r = amf_ue_sbi_discover_and_send(
+                        OGS_SBI_SERVICE_TYPE_NPCF_AM_POLICY_CONTROL,
+                        NULL,
+                        amf_npcf_am_policy_control_build_delete,
+                        amf_ue, state, NULL);
+                ogs_expect(r == OGS_OK);
+                ogs_assert(r != OGS_ERROR);
+            }
+
+        } else if (ambr_changed) {
+            ogs_pkbuf_t *ngapbuf;
+
+            ngapbuf = ngap_build_ue_context_modification_request(amf_ue);
+            ogs_assert(ngapbuf);
+
+            r = nas_5gs_send_to_gnb(amf_ue, ngapbuf);
+            ogs_expect(r == OGS_OK);
+            ogs_assert(r != OGS_ERROR);
         }
-        ogs_assert(true ==
-                amf_ue_sbi_discover_and_send(
-                    OGS_SBI_SERVICE_TYPE_NUDM_SDM, NULL,
-                    amf_nudm_sdm_build_subscription_delete, amf_ue, NULL));
-    } else if (ambr_changed) {
-        ogs_pkbuf_t *ngapbuf;
-
-        ngapbuf = ngap_build_ue_context_modification_request(amf_ue);
-        ogs_assert(ngapbuf);
-
-        if (nas_5gs_send_to_gnb(amf_ue, ngapbuf) != OGS_OK)
-            ogs_error("nas_5gs_send_to_gnb() failed");
     }
 
 cleanup:

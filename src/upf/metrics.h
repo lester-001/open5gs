@@ -19,6 +19,9 @@ typedef enum upf_metric_type_global_s {
 } upf_metric_type_global_t;
 extern ogs_metrics_inst_t *upf_metrics_inst_global[_UPF_METR_GLOB_MAX];
 
+int upf_metrics_init_inst_global(void);
+int upf_metrics_free_inst_global(void);
+
 static inline void upf_metrics_inst_global_set(upf_metric_type_global_t t, int val)
 { ogs_metrics_inst_set(upf_metrics_inst_global[t], val); }
 static inline void upf_metrics_inst_global_add(upf_metric_type_global_t t, int val)
@@ -56,8 +59,8 @@ typedef enum upf_metric_type_by_dnn_s {
 void upf_metrics_inst_by_dnn_add(
     char *dnn, upf_metric_type_by_dnn_t t, int val);
 
-int upf_metrics_open(void);
-int upf_metrics_close(void);
+void upf_metrics_init(void);
+void upf_metrics_final(void);
 
 #ifdef __cplusplus
 }

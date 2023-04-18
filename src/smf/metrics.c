@@ -39,7 +39,8 @@ static int smf_metrics_init_spec(ogs_metrics_context_t *ctx,
     for (i = 0; i < len; i++) {
         dst[i] = ogs_metrics_spec_new(ctx, src[i].type,
                 src[i].name, src[i].description,
-                src[i].initial_val, src[i].num_labels, src[i].labels);
+                src[i].initial_val, src[i].num_labels, src[i].labels,
+                NULL);
     }
     return OGS_OK;
 }
@@ -462,10 +463,10 @@ int smf_metrics_free_inst_by_cause(ogs_metrics_inst_t **inst)
     return smf_metrics_free_inst(inst, _SMF_METR_BY_CAUSE_MAX);
 }
 
-int smf_metrics_open(void)
+void smf_metrics_init(void)
 {
     ogs_metrics_context_t *ctx = ogs_metrics_self();
-    ogs_metrics_context_open(ctx);
+    ogs_metrics_context_init();
 
     smf_metrics_init_spec(ctx, smf_metrics_spec_global, smf_metrics_spec_def_global,
             _SMF_METR_GLOB_MAX);
@@ -484,13 +485,11 @@ int smf_metrics_open(void)
     smf_metrics_init_by_slice();
     smf_metrics_init_by_5qi();
     smf_metrics_init_by_cause();
-    return 0;
 }
 
-int smf_metrics_close(void)
+void smf_metrics_final(void)
 {
     ogs_hash_index_t *hi;
-    ogs_metrics_context_t *ctx = ogs_metrics_self();
 
     if (metrics_hash_by_slice) {
         for (hi = ogs_hash_first(metrics_hash_by_slice); hi; hi = ogs_hash_next(hi)) {
@@ -538,6 +537,5 @@ int smf_metrics_close(void)
         ogs_hash_destroy(metrics_hash_by_cause);
     }
 
-    ogs_metrics_context_close(ctx);
-    return OGS_OK;
+    ogs_metrics_context_final();
 }

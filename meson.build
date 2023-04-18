@@ -1,4 +1,4 @@
-# Copyright (C) 2019 by Sukchan Lee <acetcom@gmail.com>
+# Copyright (C) 2019-2023 by Sukchan Lee <acetcom@gmail.com>
 
 # This file is part of Open5GS.
 
@@ -16,7 +16,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 project('open5gs', 'c', 'cpp',
-    version : '2.5.6',
+    version : '2.6.2',
     license : 'AGPL-3.0-or-later',
     meson_version : '>= 0.43.0',
     default_options : [
@@ -25,7 +25,7 @@ project('open5gs', 'c', 'cpp',
     ],
 )
 
-libogslib_version = '2.5.6'
+libogslib_version = '2.6.2'
 
 prefix = get_option('prefix')
 bindir = join_paths(prefix, get_option('bindir'))
@@ -148,7 +148,7 @@ message('\n'.join([
 
 if cppcheck.found()
     run_target('analyze-cppcheck',
-    command : [ 'misc/static_code_analyze.sh',
+    command : [ 'misc/static-code-analyze.sh',
         meson.version().version_compare('>=0.55.0') ?
           cppcheck.full_path() : cppcheck.path(),
         meson.current_build_dir(),
@@ -159,7 +159,7 @@ endif
 
 if clangtidy.found()
     run_target('analyze-clang-tidy',
-    command : [ 'misc/static_code_analyze.sh',
+    command : [ 'misc/static-code-analyze.sh',
         meson.version().version_compare('>=0.55.0') ?
           clangtidy.full_path() : clangtidy.path(),
         meson.current_build_dir(),

@@ -344,5 +344,12 @@ char *nssf_nsi_nrf_uri(nssf_nsi_t *nsi)
     h.api.version = (char *)OGS_SBI_API_V1;
     h.resource.component[0] = (char *)OGS_SBI_RESOURCE_NAME_NF_INSTANCES;
 
-    return ogs_uridup(ogs_app_tls_server_enabled() == true, nsi->addr, &h);
+    return ogs_uridup(ogs_app()->sbi.server.no_tls == false, nsi->addr, &h);
+}
+
+int get_nsi_load(void)
+{
+    return (((ogs_pool_size(&nssf_nsi_pool) -
+            ogs_pool_avail(&nssf_nsi_pool)) * 100) /
+            ogs_pool_size(&nssf_nsi_pool));
 }

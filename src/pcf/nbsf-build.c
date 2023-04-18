@@ -52,12 +52,16 @@ ogs_sbi_request_t *pcf_nbsf_management_build_register(
         (char *)OGS_SBI_RESOURCE_NAME_PCF_BINDINGS;
 
     memset(&PcfBinding, 0, sizeof(PcfBinding));
+    memset(&sNssai, 0, sizeof(sNssai));
 
     PcfBinding.supi = pcf_ue->supi;
     PcfBinding.gpsi = pcf_ue->gpsi;
 
     PcfBinding.ipv4_addr = sess->ipv4addr_string;
     PcfBinding.ipv6_prefix = sess->ipv6prefix_string;
+
+    PcfBinding.ipv4_frame_route_list = sess->ipv4_frame_route_list;
+    PcfBinding.ipv6_frame_route_list = sess->ipv6_frame_route_list;
 
     if (!sess->dnn) {
         ogs_error("No DNN");
@@ -132,7 +136,6 @@ ogs_sbi_request_t *pcf_nbsf_management_build_register(
     else
         OpenAPI_list_free(PcfIpEndPointList);
 
-    memset(&sNssai, 0, sizeof(sNssai));
     sNssai.sst = sess->s_nssai.sst;
     sNssai.sd = ogs_s_nssai_sd_to_string(sess->s_nssai.sd);
     PcfBinding.snssai = &sNssai;

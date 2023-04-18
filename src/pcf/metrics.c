@@ -40,7 +40,8 @@ static int pcf_metrics_init_spec(ogs_metrics_context_t *ctx,
     for (i = 0; i < len; i++) {
         dst[i] = ogs_metrics_spec_new(ctx, src[i].type,
                 src[i].name, src[i].description,
-                src[i].initial_val, src[i].num_labels, src[i].labels);
+                src[i].initial_val, src[i].num_labels, src[i].labels,
+                NULL);
     }
     return OGS_OK;
 }
@@ -52,12 +53,12 @@ pcf_metrics_spec_def_t pcf_metrics_spec_def_global[_PCF_METR_GLOB_MAX] = {
 /* Global Counters: */
 /* Global Gauges: */
 };
-static int pcf_metrics_init_inst_global(void)
+int pcf_metrics_init_inst_global(void)
 {
     return pcf_metrics_init_inst(pcf_metrics_inst_global,
             pcf_metrics_spec_global, _PCF_METR_GLOB_MAX, 0, NULL);
 }
-static int pcf_metrics_free_inst_global(void)
+int pcf_metrics_free_inst_global(void)
 {
     return pcf_metrics_free_inst(pcf_metrics_inst_global, _PCF_METR_GLOB_MAX);
 }
@@ -258,10 +259,10 @@ int pcf_metrics_free_inst_by_slice(ogs_metrics_inst_t **inst)
     return pcf_metrics_free_inst(inst, _PCF_METR_BY_SLICE_MAX);
 }
 
-int pcf_metrics_open(void)
+void pcf_metrics_init(void)
 {
     ogs_metrics_context_t *ctx = ogs_metrics_self();
-    ogs_metrics_context_open(ctx);
+    ogs_metrics_context_init();
 
     pcf_metrics_init_spec(ctx, pcf_metrics_spec_global,
             pcf_metrics_spec_def_global, _PCF_METR_GLOB_MAX);
@@ -273,16 +274,11 @@ int pcf_metrics_open(void)
     pcf_metrics_init_inst_global();
     pcf_metrics_init_by_plmn();
     pcf_metrics_init_by_slice();
-
-    return 0;
 }
 
-int pcf_metrics_close(void)
+void pcf_metrics_final(void)
 {
     ogs_hash_index_t *hi;
-    ogs_metrics_context_t *ctx = ogs_metrics_self();
-
-    pcf_metrics_free_inst_global();
 
     if (metrics_hash_by_slice) {
         for (hi = ogs_hash_first(metrics_hash_by_slice); hi; hi = ogs_hash_next(hi)) {
@@ -315,6 +311,5 @@ int pcf_metrics_close(void)
         ogs_hash_destroy(metrics_hash_by_plmn);
     }
 
-    ogs_metrics_context_close(ctx);
-    return OGS_OK;
+    ogs_metrics_context_final();
 }

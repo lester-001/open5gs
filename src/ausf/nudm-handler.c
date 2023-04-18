@@ -46,7 +46,7 @@ bool ausf_nudm_ueau_handle_get(ausf_ue_t *ausf_ue,
     OpenAPI_authentication_info_result_t *AuthenticationInfoResult = NULL;
     OpenAPI_authentication_vector_t *AuthenticationVector = NULL;
     OpenAPI_ue_authentication_ctx_t UeAuthenticationCtx;
-    OpenAPI_av5g_aka_t AV5G_AKA;
+    OpenAPI_ue_authentication_ctx_5g_auth_data_t AV5G_AKA;
     OpenAPI_map_t *LinksValueScheme = NULL;
     OpenAPI_links_value_schema_t LinksValueSchemeValue;
 
@@ -62,7 +62,7 @@ bool ausf_nudm_ueau_handle_get(ausf_ue_t *ausf_ue,
         ogs_error("[%s] No AuthenticationInfoResult", ausf_ue->suci);
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
-                OGS_SBI_HTTP_STATUS_INTERNAL_SERVER_ERROR,
+                OGS_SBI_HTTP_STATUS_BAD_REQUEST,
                 recvmsg, "No AuthenticationInfoResult", ausf_ue->suci));
         return false;
     }
@@ -85,7 +85,7 @@ bool ausf_nudm_ueau_handle_get(ausf_ue_t *ausf_ue,
         ogs_error("[%s] No AuthenticationVector", ausf_ue->suci);
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
-                OGS_SBI_HTTP_STATUS_INTERNAL_SERVER_ERROR,
+                OGS_SBI_HTTP_STATUS_BAD_REQUEST,
                 recvmsg, "No AuthenticationVector", ausf_ue->suci));
         return false;
     }
@@ -104,7 +104,7 @@ bool ausf_nudm_ueau_handle_get(ausf_ue_t *ausf_ue,
         ogs_error("[%s] No AuthenticationVector.rand", ausf_ue->suci);
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
-                OGS_SBI_HTTP_STATUS_INTERNAL_SERVER_ERROR,
+                OGS_SBI_HTTP_STATUS_BAD_REQUEST,
                 recvmsg, "No AuthenticationVector.rand", ausf_ue->suci));
         return false;
     }
@@ -114,7 +114,7 @@ bool ausf_nudm_ueau_handle_get(ausf_ue_t *ausf_ue,
                 ausf_ue->suci);
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
-                OGS_SBI_HTTP_STATUS_INTERNAL_SERVER_ERROR,
+                OGS_SBI_HTTP_STATUS_BAD_REQUEST,
                 recvmsg, "No AuthenticationVector.xresStar", ausf_ue->suci));
         return false;
     }
@@ -123,7 +123,7 @@ bool ausf_nudm_ueau_handle_get(ausf_ue_t *ausf_ue,
         ogs_error("[%s] No AuthenticationVector.autn", ausf_ue->suci);
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
-                OGS_SBI_HTTP_STATUS_INTERNAL_SERVER_ERROR,
+                OGS_SBI_HTTP_STATUS_BAD_REQUEST,
                 recvmsg, "No AuthenticationVector.autn", ausf_ue->suci));
         return false;
     }
@@ -132,10 +132,30 @@ bool ausf_nudm_ueau_handle_get(ausf_ue_t *ausf_ue,
         ogs_error("[%s] No AuthenticationVector.kausf", ausf_ue->suci);
         ogs_assert(true ==
             ogs_sbi_server_send_error(stream,
-                OGS_SBI_HTTP_STATUS_INTERNAL_SERVER_ERROR,
+                OGS_SBI_HTTP_STATUS_BAD_REQUEST,
                 recvmsg, "No AuthenticationVector.kausf", ausf_ue->suci));
         return false;
     }
+
+    if (!AuthenticationInfoResult->supi) {
+        ogs_error("[%s] No AuthenticationVector.supi", ausf_ue->suci);
+        ogs_assert(true ==
+            ogs_sbi_server_send_error(stream,
+                OGS_SBI_HTTP_STATUS_BAD_REQUEST,
+                recvmsg, "No AuthenticationVector.supi", ausf_ue->suci));
+        return false;
+    }
+
+    /* SUPI */
+    if (ausf_ue->supi) {
+        ogs_hash_set(ausf_self()->supi_hash,
+                ausf_ue->supi, strlen(ausf_ue->supi), NULL);
+        ogs_free(ausf_ue->supi);
+    }
+    ausf_ue->supi = ogs_strdup(AuthenticationInfoResult->supi);
+    ogs_assert(ausf_ue->supi);
+    ogs_hash_set(ausf_self()->supi_hash,
+            ausf_ue->supi, strlen(ausf_ue->supi), ausf_ue);
 
     ausf_ue->auth_type = AuthenticationInfoResult->auth_type;
 

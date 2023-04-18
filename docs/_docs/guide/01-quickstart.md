@@ -56,7 +56,7 @@ The Open5GS 5G SA Core contains the following functions:
 * NSSF - Network Slice Selection Function
 * BSF - Binding Support Function
 
-The 5G SA core works in a different way to the 4G core - it uses a **Service Based Architecture** (SBI). **Control plane** functions are configured to register with the NRF, and the NRF then helps them discover the other core functions. Running through the other functions: The AMF handles connection and mobility management; a subset of what the 4G MME is tasked with. gNBs (5G basestations) connect to the AMF. The UDM, AUSF and UDR carry out similar operations as the 4G HSS, generating SIM authentication vectors and holding the subscriber profile. Session management is all handled by the SMF (previously the responsibility of the 4G MME/ SGWC/ PGWC). The NSSF provides a way to select the network slice, and PCF is used for charging and enforcing subscriber policies. Finally there is the SCP that enable indirect communication.
+The 5G SA core works in a different way to the 4G core - it uses a **Service Based Architecture** (SBA). **Control plane** functions are configured to register with the NRF, and the NRF then helps them discover the other core functions. Running through the other functions: The AMF handles connection and mobility management; a subset of what the 4G MME is tasked with. gNBs (5G basestations) connect to the AMF. The UDM, AUSF and UDR carry out similar operations as the 4G HSS, generating SIM authentication vectors and holding the subscriber profile. Session management is all handled by the SMF (previously the responsibility of the 4G MME/ SGWC/ PGWC). The NSSF provides a way to select the network slice, and PCF is used for charging and enforcing subscriber policies. Finally there is the SCP that enable indirect communication.
 
 The 5G SA core **user plane** is much simpler, as it only contains a single function. The UPF carries user data packets between the gNB and the external WAN. It connects back to the SMF too. 
 
@@ -416,38 +416,7 @@ Enter the subscriber details of your SIM cards using this tool, to save the subs
 #### Adding a route for the UE to have WAN connectivity {#UEInternet}
 ---
 
-In order to bridge between the PGWU/UPF and WAN (Internet), you must enable IP forwarding and add a NAT rule to your IP Tables.  
-
-**Note:** For the first run, it makes things simpler if you do not have any rules in the IP/NAT tables. If a program such as docker has already set up a rule, you will need to add rules differently.
-{: .notice--danger}
-
-You can check your current IP Table rules with the following commands (these tables are empty):
-```bash
-### Check IP Tables
-$ sudo iptables -L
-Chain INPUT (policy ACCEPT)
-target     prot opt source               destination
-
-Chain FORWARD (policy ACCEPT)
-target     prot opt source               destination
-
-Chain OUTPUT (policy ACCEPT)
-target     prot opt source               destination
-
-### Check NAT Tables
-$ sudo iptables -L -t nat
-Chain PREROUTING (policy ACCEPT)
-target     prot opt source               destination
-
-Chain INPUT (policy ACCEPT)
-target     prot opt source               destination
-
-Chain OUTPUT (policy ACCEPT)
-target     prot opt source               destination
-
-Chain POSTROUTING (policy ACCEPT)
-target     prot opt source               destination
-```
+In order to bridge between the PGWU/UPF and WAN (Internet), you must enable IP forwarding and add a NAT rule to your IP Tables.
 
 To enable forwarding and add the NAT rule, enter
 ```bash
@@ -460,9 +429,22 @@ $ sudo iptables -t nat -A POSTROUTING -s 10.45.0.0/16 ! -o ogstun -j MASQUERADE
 $ sudo ip6tables -t nat -A POSTROUTING -s 2001:db8:cafe::/48 ! -o ogstun -j MASQUERADE
 ```
 
+Configure the firewall correctly. Some operating systems (Ubuntu) by default enable firewall rules to block traffic.
+```bash
+$ sudo ufw status
+Status: active
+$ sudo ufw disable
+Firewall stopped and disabled on system startup
+$ sudo ufw status
+Status: inactive
+```
+
 Optionally, you may consider the settings below for security purposes.
 
 ```bash
+### Ensure that the packets in the `INPUT` chain to the `ogstun` interface are accepted
+$ sudo iptables -I INPUT -i ogstun -j ACCEPT
+
 ### Prevent UE's from connecting to the host on which UPF is running
 $ sudo iptables -I INPUT -s 10.45.0.0/16 -j DROP
 $ sudo ip6tables -I INPUT -s 2001:db8:cafe::/48 -j DROP
@@ -472,9 +454,6 @@ $ sudo ip6tables -I INPUT -s 2001:db8:cafe::/48 -j DROP
 ### Replace x.x.x.x/y with the VNFs IP/subnet
 $ sudo iptables -I FORWARD -s 10.45.0.0/16 -d x.x.x.x/y -j DROP
 ```
-
-**Note:** The above assumes you do not have any existing rules in the filter and nat tables. If a program such as docker has already set up rules, you may need to add the Open5GS related rules differently.
-{: .notice--danger}
 
 ## 5. Turn on your eNB/gNB and UE
 ---

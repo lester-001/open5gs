@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2022 by Sukchan Lee <acetcom@gmail.com>
+ * Copyright (C) 2019-2023 by Sukchan Lee <acetcom@gmail.com>
  *
  * This file is part of Open5GS.
  *
@@ -49,6 +49,15 @@ typedef struct ogs_sbi_discovery_config_s {
 typedef struct ogs_sbi_context_s {
     ogs_sbi_discovery_config_t discovery_config; /* SCP Discovery Delegated */
 
+#define OGS_HOME_NETWORK_PKI_VALUE_MIN 1
+#define OGS_HOME_NETWORK_PKI_VALUE_MAX 254
+
+    struct {
+        uint8_t avail;
+        uint8_t scheme;
+        uint8_t key[OGS_ECCKEY_LEN]; /* 32 bytes Private Key */
+    } hnet[OGS_HOME_NETWORK_PKI_VALUE_MAX+1]; /* PKI Value : 1 ~ 254 */
+
     uint16_t sbi_port;                      /* SBI local port */
 
     ogs_list_t server_list;
@@ -84,6 +93,21 @@ typedef struct ogs_sbi_nf_instance_s {
     ogs_timer_t *t_heartbeat_interval;      /* heartbeat interval */
     ogs_timer_t *t_no_heartbeat;            /* check heartbeat */
     ogs_timer_t *t_validity;                /* check validation */
+
+    /*
+     * Issues #2034
+     *
+     * Other NF instances are obtained through NRF
+     * or created directly through configuration files.
+     *
+     * Other NFs created by the config file should not be passed
+     * through NRF discovery or anything like that.
+     *
+     * Since self-created NF Instances do not have an ID,
+     * they are implemented to exclude them from NRF Discovery.
+     */
+#define NF_INSTANCE_EXCLUDED_FROM_DISCOVERY(__nFInstance) \
+    (!(__nFInstance) || !((__nFInstance)->id))
 
 #define NF_INSTANCE_ID(__nFInstance) \
     ((__nFInstance) ? ((__nFInstance)->id) : NULL)
@@ -222,11 +246,14 @@ typedef struct ogs_sbi_subscription_spec_s {
 typedef struct ogs_sbi_subscription_data_s {
     ogs_lnode_t lnode;
 
+#define OGS_SBI_VALIDITY_SEC(v) \
+        ogs_time_sec(v) + (ogs_time_usec(v) ? 1 : 0)
     struct {
         int validity_duration;
     } time;
 
     ogs_timer_t *t_validity;                /* check validation */
+    ogs_timer_t *t_patch;                   /* for sending PATCH */
 
     char *id;                               /* SubscriptionId */
     char *req_nf_instance_id;               /* reqNfInstanceId */
@@ -305,11 +332,12 @@ typedef struct ogs_sbi_nf_info_s {
     };
 } ogs_sbi_nf_info_t;
 
-void ogs_sbi_context_init(void);
+void ogs_sbi_context_init(OpenAPI_nf_type_e nf_type);
 void ogs_sbi_context_final(void);
 ogs_sbi_context_t *ogs_sbi_self(void);
 int ogs_sbi_context_parse_config(
         const char *local, const char *nrf, const char *scp);
+int ogs_sbi_context_parse_hnet_config(ogs_yaml_iter_t *root_iter);
 
 bool ogs_sbi_nf_service_is_available(const char *name);
 
@@ -361,8 +389,7 @@ void ogs_sbi_nf_info_remove_all(ogs_list_t *list);
 ogs_sbi_nf_info_t *ogs_sbi_nf_info_find(
         ogs_list_t *list, OpenAPI_nf_type_e nf_type);
 
-void ogs_sbi_nf_instance_build_default(
-        ogs_sbi_nf_instance_t *nf_instance, OpenAPI_nf_type_e nf_type);
+void ogs_sbi_nf_instance_build_default(ogs_sbi_nf_instance_t *nf_instance);
 ogs_sbi_nf_service_t *ogs_sbi_nf_service_build_default(
         ogs_sbi_nf_instance_t *nf_instance, const char *name);
 

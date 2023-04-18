@@ -40,7 +40,8 @@ static int upf_metrics_init_spec(ogs_metrics_context_t *ctx,
     for (i = 0; i < len; i++) {
         dst[i] = ogs_metrics_spec_new(ctx, src[i].type,
                 src[i].name, src[i].description,
-                src[i].initial_val, src[i].num_labels, src[i].labels);
+                src[i].initial_val, src[i].num_labels, src[i].labels,
+                NULL);
     }
     return OGS_OK;
 }
@@ -82,12 +83,12 @@ upf_metrics_spec_def_t upf_metrics_spec_def_global[_UPF_METR_GLOB_MAX] = {
     .description = "Active Sessions",
 },
 };
-static int upf_metrics_init_inst_global(void)
+int upf_metrics_init_inst_global(void)
 {
     return upf_metrics_init_inst(upf_metrics_inst_global, upf_metrics_spec_global,
                 _UPF_METR_GLOB_MAX, 0, NULL);
 }
-static int upf_metrics_free_inst_global(void)
+int upf_metrics_free_inst_global(void)
 {
     return upf_metrics_free_inst(upf_metrics_inst_global, _UPF_METR_GLOB_MAX);
 }
@@ -315,10 +316,10 @@ int upf_metrics_free_inst_by_dnn(ogs_metrics_inst_t **inst)
     return upf_metrics_free_inst(inst, _UPF_METR_BY_DNN_MAX);
 }
 
-int upf_metrics_open(void)
+void upf_metrics_init(void)
 {
     ogs_metrics_context_t *ctx = ogs_metrics_self();
-    ogs_metrics_context_open(ctx);
+    ogs_metrics_context_init();
 
     upf_metrics_init_spec(ctx, upf_metrics_spec_global, upf_metrics_spec_def_global,
             _UPF_METR_GLOB_MAX);
@@ -333,15 +334,11 @@ int upf_metrics_open(void)
     upf_metrics_init_by_qfi();
     upf_metrics_init_by_cause();
     upf_metrics_init_by_dnn();
-
-    return 0;
 }
 
-int upf_metrics_close(void)
+void upf_metrics_final(void)
 {
     ogs_hash_index_t *hi;
-    ogs_metrics_context_t *ctx = ogs_metrics_self();
-    upf_metrics_free_inst_global();
 
     if (metrics_hash_by_qfi) {
         for (hi = ogs_hash_first(metrics_hash_by_qfi); hi; hi = ogs_hash_next(hi)) {
@@ -389,6 +386,5 @@ int upf_metrics_close(void)
         ogs_hash_destroy(metrics_hash_by_dnn);
     }
 
-    ogs_metrics_context_close(ctx);
-    return OGS_OK;
+    ogs_metrics_context_final();
 }
