@@ -1667,12 +1667,13 @@ void smf_sess_remove(smf_sess_t *sess)
     ogs_fsm_fini(&sess->sm, &e);
 
     OGS_TLV_CLEAR_DATA(&sess->gtp.ue_pco);
+    OGS_TLV_CLEAR_DATA(&sess->gtp.ue_epco);
     OGS_TLV_CLEAR_DATA(&sess->gtp.user_location_information);
     OGS_TLV_CLEAR_DATA(&sess->gtp.ue_timezone);
     OGS_TLV_CLEAR_DATA(&sess->gtp.charging_characteristics);
     OGS_TLV_CLEAR_DATA(&sess->gtp.v1.qos);
 
-    OGS_NAS_CLEAR_DATA(&sess->nas.ue_pco);
+    OGS_NAS_CLEAR_DATA(&sess->nas.ue_epco);
 
     for (i = 0; i < sess->policy.num_of_pcc_rule; i++)
         OGS_PCC_RULE_FREE(&sess->policy.pcc_rule[i]);
@@ -3002,7 +3003,7 @@ void smf_qfi_pool_init(smf_sess_t *sess)
 {
     ogs_assert(sess);
 
-    ogs_pool_init(&sess->qfi_pool, OGS_MAX_QOS_FLOW_ID);
+    ogs_pool_create(&sess->qfi_pool, OGS_MAX_QOS_FLOW_ID);
     ogs_pool_sequence_id_generate(&sess->qfi_pool);
 }
 
@@ -3010,14 +3011,14 @@ void smf_qfi_pool_final(smf_sess_t *sess)
 {
     ogs_assert(sess);
 
-    ogs_pool_final(&sess->qfi_pool);
+    ogs_pool_destroy(&sess->qfi_pool);
 }
 
 void smf_pf_identifier_pool_init(smf_bearer_t *bearer)
 {
     ogs_assert(bearer);
 
-    ogs_pool_init(&bearer->pf_identifier_pool, OGS_MAX_NUM_OF_FLOW_IN_BEARER);
+    ogs_pool_create(&bearer->pf_identifier_pool, OGS_MAX_NUM_OF_FLOW_IN_BEARER);
     ogs_pool_sequence_id_generate(&bearer->pf_identifier_pool);
 }
 
@@ -3025,14 +3026,14 @@ void smf_pf_identifier_pool_final(smf_bearer_t *bearer)
 {
     ogs_assert(bearer);
 
-    ogs_pool_final(&bearer->pf_identifier_pool);
+    ogs_pool_destroy(&bearer->pf_identifier_pool);
 }
 
 void smf_pf_precedence_pool_init(smf_sess_t *sess)
 {
     ogs_assert(sess);
 
-    ogs_pool_init(&sess->pf_precedence_pool,
+    ogs_pool_create(&sess->pf_precedence_pool,
             OGS_MAX_NUM_OF_BEARER * OGS_MAX_NUM_OF_FLOW_IN_BEARER);
     ogs_pool_sequence_id_generate(&sess->pf_precedence_pool);
 }
@@ -3041,7 +3042,7 @@ void smf_pf_precedence_pool_final(smf_sess_t *sess)
 {
     ogs_assert(sess);
 
-    ogs_pool_final(&sess->pf_precedence_pool);
+    ogs_pool_destroy(&sess->pf_precedence_pool);
 }
 
 static void stats_add_smf_session(void)

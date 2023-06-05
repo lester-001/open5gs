@@ -176,7 +176,13 @@ typedef struct mme_pgw_s {
     ogs_lnode_t     lnode;
 
     ogs_sockaddr_t  *sa_list;
-    const char      *apn;
+
+    const char      *apn[OGS_MAX_NUM_OF_APN];
+    uint8_t         num_of_apn;
+    uint16_t        tac[OGS_MAX_NUM_OF_TAI];
+    uint8_t         num_of_tac;
+    uint32_t        e_cell_id[OGS_MAX_NUM_OF_CELL_ID];
+    uint8_t         num_of_e_cell_id;
 } mme_pgw_t;
 
 #define MME_SGSAP_IS_CONNECTED(__mME) \
@@ -613,6 +619,20 @@ struct mme_ue_s {
         ((__mME)->sgw_ue)->sgw_s11_teid = 0; \
     } while(0)
 
+#define MME_SESS_CLEAR(__sESS) \
+    do { \
+        mme_ue_t *mme_ue = NULL; \
+        ogs_assert(__sESS); \
+        mme_ue = __sESS->mme_ue; \
+        ogs_assert(mme_ue); \
+        ogs_info("Removed Session: UE IMSI:[%s] APN:[%s]", \
+                mme_ue->imsi_bcd, \
+                sess->session ? sess->session->name : "Unknown"); \
+        if (mme_sess_count(mme_ue) == 1) /* Last Session */ \
+            CLEAR_SESSION_CONTEXT(mme_ue); \
+        mme_sess_remove(sess); \
+    } while(0)
+
 #define ACTIVE_EPS_BEARERS_IS_AVAIABLE(__mME) \
     (mme_ue_have_active_eps_bearers(__mME))
 #define MME_SESSION_RELEASE_PENDING(__mME) \
@@ -641,8 +661,17 @@ typedef struct mme_sess_s {
         uint8_t *buffer;
     } ue_pco;
 
+    /* Save Extended Protocol Configuration Options from UE */
+    struct {
+        uint16_t length;
+        uint8_t *buffer;
+    } ue_epco;
+
     /* Save Protocol Configuration Options from PGW */
     ogs_tlv_octet_t pgw_pco;
+
+    /* Save Extended Protocol Configuration Options from PGW */
+    ogs_tlv_octet_t pgw_epco;
 } mme_sess_t;
 
 #define MME_HAVE_ENB_S1U_PATH(__bEARER) \
@@ -755,8 +784,8 @@ mme_sgw_t *mme_sgw_find_by_addr(ogs_sockaddr_t *addr);
 mme_pgw_t *mme_pgw_add(ogs_sockaddr_t *addr);
 void mme_pgw_remove(mme_pgw_t *pgw);
 void mme_pgw_remove_all(void);
-ogs_sockaddr_t *mme_pgw_addr_find_by_apn(
-        ogs_list_t *list, int family, char *apn);
+ogs_sockaddr_t *mme_pgw_addr_find_by_apn_enb(
+        ogs_list_t *list, int family, mme_sess_t *sess);
 
 mme_vlr_t *mme_vlr_add(ogs_sockaddr_t *sa_list, ogs_sockopt_t *option);
 void mme_vlr_remove(mme_vlr_t *vlr);

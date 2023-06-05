@@ -2112,9 +2112,6 @@ void amf_sess_remove(amf_sess_t *sess)
     if (sess->nssf.nrf.client)
         ogs_sbi_client_remove(sess->nssf.nrf.client);
 
-    OGS_NAS_CLEAR_DATA(&sess->ue_pco);
-    OGS_TLV_CLEAR_DATA(&sess->pgw_pco);
-
     ogs_pool_free(&amf_sess_pool, sess);
 
     stats_remove_amf_session();
@@ -2440,6 +2437,9 @@ amf_m_tmsi_t *amf_m_tmsi_alloc(void)
 int amf_m_tmsi_free(amf_m_tmsi_t *m_tmsi)
 {
     ogs_assert(m_tmsi);
+
+    /* Restore M-TMSI by Issue #2307 */
+    *m_tmsi &= 0x003fffff;
     ogs_pool_free(&m_tmsi_pool, m_tmsi);
 
     return OGS_OK;
