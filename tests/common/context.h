@@ -65,30 +65,30 @@ typedef struct test_context_s {
     ogs_list_t      gtpc_list;      /* SMF GTPC Client List */
 
     /* 5G PLMN Support */
-    uint8_t num_of_plmn_support;
+    int num_of_plmn_support;
     struct {
         ogs_plmn_id_t plmn_id;
         int num_of_s_nssai;
-        ogs_s_nssai_t s_nssai[OGS_MAX_NUM_OF_SLICE];
+        ogs_s_nssai_t s_nssai[OGS_MAX_NUM_OF_SLICE_SUPPORT];
     } plmn_support[OGS_MAX_NUM_OF_PLMN];
 
     /* Served EPC TAI */
-    uint8_t num_of_e_served_tai;
+    int num_of_e_served_tai;
     struct {
         ogs_eps_tai0_list_t list0;
         ogs_eps_tai1_list_t list1;
         ogs_eps_tai2_list_t list2;
-    } e_served_tai[OGS_MAX_NUM_OF_SERVED_TAI];
+    } e_served_tai[OGS_MAX_NUM_OF_SUPPORTED_TA];
 
     ogs_eps_tai_t e_tai;
 
     /* Served 5GC TAI */
-    uint8_t num_of_nr_served_tai;
+    int num_of_nr_served_tai;
     struct {
         ogs_5gs_tai0_list_t list0;
         ogs_5gs_tai1_list_t list1;
         ogs_5gs_tai2_list_t list2;
-    } nr_served_tai[OGS_MAX_NUM_OF_SERVED_TAI];
+    } nr_served_tai[OGS_MAX_NUM_OF_SUPPORTED_TA];
 
     ogs_5gs_tai_t nr_tai;
     ogs_nr_cgi_t nr_cgi;
@@ -477,6 +477,13 @@ typedef struct test_bearer_s {
 
     uint32_t        sgw_s1u_teid;   /* SGW-S1U TEID */
     ogs_ip_t        sgw_s1u_ip;     /* SGW-S1U IPv4/IPv6 */
+    struct {
+        /* Indirect Forwarding */
+        uint32_t dl_teid;
+        ogs_ip_t dl_ip;
+        uint32_t ul_teid;
+        ogs_ip_t ul_ip;
+    } handover;
 
     uint32_t        enb_s1u_teid;   /* eNB-S1U TEID */
     ogs_sockaddr_t  *enb_s1u_addr;  /* eNB-S1U IPv4 */

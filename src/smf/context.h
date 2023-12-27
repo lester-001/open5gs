@@ -138,8 +138,10 @@ typedef struct smf_ue_s {
     do { \
         smf_ue_t *smf_ue = NULL; \
         ogs_assert(__sESS); \
-        smf_ue = __sESS->smf_ue; \
+        smf_ue = (__sESS)->smf_ue; \
         ogs_assert(smf_ue); \
+        smf_metrics_inst_by_slice_add(&(__sESS)->serving_plmn_id, \
+                &(__sESS)->s_nssai, SMF_METR_GAUGE_SM_SESSIONNBR, -1); \
         if (SMF_UE_IS_LAST_SESSION(smf_ue)) \
             smf_ue_remove(smf_ue); \
         else \
@@ -282,8 +284,9 @@ typedef struct smf_sess_s {
 
     OpenAPI_up_cnx_state_e up_cnx_state;
 
-    /* PLMN ID & NID */
-    ogs_plmn_id_t   plmn_id;
+    /* Serving PLMN ID & Home PLMN ID */
+    ogs_plmn_id_t serving_plmn_id;
+    ogs_plmn_id_t home_plmn_id;
 
     /* LTE Location */
     ogs_eps_tai_t   e_tai;
@@ -314,6 +317,9 @@ typedef struct smf_sess_s {
     ogs_session_t session;
     uint8_t ue_session_type;
     uint8_t ue_ssc_mode;
+
+    /* DNN */
+    char *full_dnn;
 
     ogs_pfcp_ue_ip_t *ipv4;
     ogs_pfcp_ue_ip_t *ipv6;
@@ -377,6 +383,11 @@ typedef struct smf_sess_s {
     struct {
         int pdu_session_resource_release;
     } ngap_state;
+
+#define SMF_UECM_STATE_NONE                                     0
+#define SMF_UECM_STATE_REGISTERED                               1
+#define SMF_UECM_STATE_DEREGISTERED_BY_AMF                      2
+#define SMF_UECM_STATE_DEREGISTERED_BY_N1_N2_RELEASE            3
 
     /* Handover */
     struct {
@@ -526,7 +537,7 @@ int smf_maximum_integrity_protected_data_rate_uplink_value2enum(
         const char *value);
 int smf_maximum_integrity_protected_data_rate_downlink_value2enum(
         const char *value);
-int get_sess_load(void);
+int smf_instance_get_load(void);
 
 #ifdef __cplusplus
 }

@@ -28,6 +28,7 @@
 #include "nas-path.h"
 #include "emm-handler.h"
 #include "esm-handler.h"
+#include "mme-gn-handler.h"
 #include "mme-gtp-path.h"
 #include "mme-s11-handler.h"
 #include "mme-fd-path.h"
@@ -79,6 +80,7 @@ void mme_state_operational(ogs_fsm_t *s, mme_event_t *e)
     ogs_gtp_node_t *gnode = NULL;
     ogs_gtp_xact_t *xact = NULL;
     ogs_gtp2_message_t gtp_message;
+    ogs_gtp1_message_t gtp1_message;
 
     mme_vlr_t *vlr = NULL;
 
@@ -263,6 +265,8 @@ void mme_state_operational(ogs_fsm_t *s, mme_event_t *e)
                     ogs_pkbuf_free(pkbuf);
                     return;
                 }
+
+                ogs_assert(ECM_IDLE(mme_ue));
             } else {
                 /* Here, if the MME_UE Context is found,
                  * the integrity check is not performed
@@ -283,29 +287,31 @@ void mme_state_operational(ogs_fsm_t *s, mme_event_t *e)
                         return;
                     }
                 }
+
+                /* If NAS(mme_ue_t) has already been associated with
+                 * older S1(enb_ue_t) context */
+                if (ECM_CONNECTED(mme_ue)) {
+    /*
+     * Issue #2786
+     *
+     * In cases where the UE sends an Integrity Un-Protected Attach
+     * Request or Service Request, there is an issue of sending
+     * a UEContextReleaseCommand for the OLD ENB Context.
+     *
+     * For example, if the UE switchs off and power-on after
+     * the first connection, the EPC sends a UEContextReleaseCommand.
+     *
+     * However, since there is no ENB context for this on the eNB,
+     * the eNB does not send a UEContextReleaseComplete,
+     * so the deletion of the ENB Context does not function properly.
+     *
+     * To solve this problem, the EPC has been modified to implicitly
+     * delete the ENB Context instead of sending a UEContextReleaseCommand.
+     */
+                    HOLDING_S1_CONTEXT(mme_ue);
+                }
             }
 
-            /* If NAS(mme_ue_t) has already been associated with
-             * older S1(enb_ue_t) context */
-            if (ECM_CONNECTED(mme_ue)) {
-                /* Previous S1(enb_ue_t) context the holding timer(30secs)
-                 * is started.
-                 * Newly associated S1(enb_ue_t) context holding timer
-                 * is stopped. */
-                ogs_debug("Start S1 Holding Timer");
-                ogs_debug("    ENB_UE_S1AP_ID[%d] MME_UE_S1AP_ID[%d]",
-                        mme_ue->enb_ue->enb_ue_s1ap_id,
-                        mme_ue->enb_ue->mme_ue_s1ap_id);
-
-                /* De-associate S1 with NAS/EMM */
-                enb_ue_deassociate(mme_ue->enb_ue);
-
-                r = s1ap_send_ue_context_release_command(mme_ue->enb_ue,
-                        S1AP_Cause_PR_nas, S1AP_CauseNas_normal_release,
-                        S1AP_UE_CTX_REL_S1_CONTEXT_REMOVE, 0);
-                ogs_expect(r == OGS_OK);
-                ogs_assert(r != OGS_ERROR);
-            }
             enb_ue_associate_mme_ue(enb_ue, mme_ue);
             ogs_debug("Mobile Reachable timer stopped for IMSI[%s]",
                 mme_ue->imsi_bcd);
@@ -462,7 +468,7 @@ void mme_state_operational(ogs_fsm_t *s, mme_event_t *e)
             break;
         case OGS_DIAM_S6A_CMD_CODE_INSERT_SUBSCRIBER_DATA:
             mme_s6a_handle_idr(mme_ue, s6a_message);
-            break;            
+            break;
         default:
             ogs_error("Invalid Type[%d]", s6a_message->cmd_code);
             break;
@@ -522,14 +528,14 @@ void mme_state_operational(ogs_fsm_t *s, mme_event_t *e)
          */
         if (gtp_message.h.teid_presence && gtp_message.h.teid != 0) {
             /* Cause is not "Context not found" */
-            mme_ue = mme_ue_find_by_teid(gtp_message.h.teid);
+            mme_ue = mme_ue_find_by_s11_local_teid(gtp_message.h.teid);
         } else if (xact->local_teid) { /* rx no TEID or TEID=0 */
             /* 3GPP TS 29.274 5.5.2: we receive TEID=0 under some
              * conditions, such as cause "Session context not found". In those
              * cases, we still want to identify the local session which
              * originated the message, so try harder by using the TEID we
              * locally stored in xact when sending the original request: */
-            mme_ue = mme_ue_find_by_teid(xact->local_teid);
+            mme_ue = mme_ue_find_by_s11_local_teid(xact->local_teid);
         }
 
         switch (gtp_message.h.type) {
@@ -630,6 +636,87 @@ void mme_state_operational(ogs_fsm_t *s, mme_event_t *e)
         }
         break;
 
+    case MME_EVENT_GN_MESSAGE:
+        pkbuf = e->pkbuf;
+        ogs_assert(pkbuf);
+
+        if (ogs_gtp1_parse_msg(&gtp1_message, pkbuf) != OGS_OK) {
+            ogs_error("ogs_gtp1_parse_msg() failed");
+            ogs_pkbuf_free(pkbuf);
+            break;
+        }
+
+        gnode = e->gnode;
+        ogs_assert(gnode);
+
+        rv = ogs_gtp1_xact_receive(gnode, &gtp1_message.h, &xact);
+        if (rv != OGS_OK) {
+            ogs_pkbuf_free(pkbuf);
+            break;
+        }
+
+        if (gtp1_message.h.teid != 0) {
+            /* Cause is not "Context not found" */
+            mme_ue = mme_ue_find_by_gn_local_teid(gtp1_message.h.teid);
+        } else if (xact->local_teid) { /* rx no TEID or TEID=0 */
+            /* Try harder by using the TEID we locally stored in xact when
+             *sending the original request: */
+            mme_ue = mme_ue_find_by_gn_local_teid(xact->local_teid);
+        }
+
+        switch (gtp1_message.h.type) {
+        case OGS_GTP1_ECHO_REQUEST_TYPE:
+            mme_gn_handle_echo_request(xact, &gtp1_message.echo_request);
+            break;
+        case OGS_GTP1_ECHO_RESPONSE_TYPE:
+            mme_gn_handle_echo_response(xact, &gtp1_message.echo_response);
+            break;
+        case OGS_GTP1_SGSN_CONTEXT_REQUEST_TYPE:
+            mme_gn_handle_sgsn_context_request(xact, &gtp1_message.sgsn_context_request);
+            break;
+        case OGS_GTP1_SGSN_CONTEXT_ACKNOWLEDGE_TYPE:
+            mme_gn_handle_sgsn_context_acknowledge(xact, mme_ue, &gtp1_message.sgsn_context_acknowledge);
+            break;
+        case OGS_GTP1_RAN_INFORMATION_RELAY_TYPE:
+            mme_gn_handle_ran_information_relay(xact, &gtp1_message.ran_information_relay);
+            break;
+        default:
+            ogs_warn("Not implemented(type:%d)", gtp1_message.h.type);
+            break;
+        }
+        ogs_pkbuf_free(pkbuf);
+        break;
+
+    case MME_EVENT_GN_TIMER:
+        mme_ue = e->mme_ue;
+        ogs_assert(mme_ue);
+        sgw_ue = mme_ue->sgw_ue;
+        ogs_assert(sgw_ue);
+
+        switch (e->timer_id) {
+        case MME_TIMER_GN_HOLDING:
+            /* 3GPP TS 23.401 Annex D.3.5 "Routing Area Update":
+            * Step 13. "When the timer started in step 2) (see mme_gn_handle_sgsn_context_request()) expires the old MME
+            * releases any RAN and Serving GW resources. If the PLMN has configured Secondary RAT usage data reporting,
+            * the MME first releases RAN resource before releasing Serving GW resources."
+            */
+            GTP_COUNTER_CLEAR(mme_ue,
+                    GTP_COUNTER_DELETE_SESSION_BY_PATH_SWITCH);
+            ogs_list_for_each(&mme_ue->sess_list, sess) {
+                GTP_COUNTER_INCREMENT(
+                    mme_ue, GTP_COUNTER_DELETE_SESSION_BY_PATH_SWITCH);
+                ogs_assert(OGS_OK ==
+                    mme_gtp_send_delete_session_request(
+                        sgw_ue, sess,
+                        OGS_GTP_DELETE_IN_PATH_SWITCH_REQUEST));
+            }
+            break;
+
+        default:
+            ogs_error("Unknown timer[%s:%d]",
+                    mme_timer_get_name(e->timer_id), e->timer_id);
+        }
+        break;
 
     case MME_EVENT_SGSAP_LO_SCTP_COMM_UP:
         sock = e->sock;

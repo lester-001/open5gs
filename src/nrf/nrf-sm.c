@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 by Sukchan Lee <acetcom@gmail.com>
+ * Copyright (C) 2019-2023 by Sukchan Lee <acetcom@gmail.com>
  *
  * This file is part of Open5GS.
  *
@@ -41,9 +41,11 @@ void nrf_state_operational(ogs_fsm_t *s, nrf_event_t *e)
     int rv;
     ogs_sbi_stream_t *stream = NULL;
     ogs_sbi_request_t *request = NULL;
-    ogs_sbi_message_t message;
+
     ogs_sbi_nf_instance_t *nf_instance = NULL;
     ogs_sbi_subscription_data_t *subscription_data = NULL;
+
+    ogs_sbi_message_t message;
 
     ogs_assert(e);
 
@@ -99,9 +101,22 @@ void nrf_state_operational(ogs_fsm_t *s, nrf_event_t *e)
                     }
                     break;
 
+                CASE(OGS_SBI_HTTP_METHOD_OPTIONS)
+                    ogs_assert(
+                        true ==
+                        ogs_sbi_server_send_error(
+                            stream,
+                            OGS_SBI_HTTP_STATUS_NOT_IMPLEMENTED,
+                            &message, "OPTIONS method is not implemented yet",
+                            NULL));
+                    break;
+
                 DEFAULT
-                    nf_instance = ogs_sbi_nf_instance_find(
-                            message.h.resource.component[1]);
+                    if (message.h.resource.component[1]) {
+                        nf_instance = ogs_sbi_nf_instance_find(
+                                message.h.resource.component[1]);
+                    }
+
                     if (!nf_instance) {
                         SWITCH(message.h.method)
                         CASE(OGS_SBI_HTTP_METHOD_PUT)
@@ -124,6 +139,11 @@ void nrf_state_operational(ogs_fsm_t *s, nrf_event_t *e)
                             ogs_sbi_nf_instance_set_id(nf_instance,
                                     message.h.resource.component[1]);
 
+                            /*
+                             * If nrf_nf_fsm_init() is executed,
+                             * nrf_nf_fsm_final() is executed later
+                             * in nrf_context_final().
+                             */
                             nrf_nf_fsm_init(nf_instance);
                             break;
                         DEFAULT
@@ -145,13 +165,15 @@ void nrf_state_operational(ogs_fsm_t *s, nrf_event_t *e)
                         ogs_fsm_dispatch(&nf_instance->sm, e);
                         if (OGS_FSM_CHECK(&nf_instance->sm,
                                     nrf_nf_state_de_registered)) {
+                            ogs_info("[%s:%d] NF de-registered",
+                                    nf_instance->id,
+                                    nf_instance->reference_count);
                             nrf_nf_fsm_fini(nf_instance);
                             ogs_sbi_nf_instance_remove(nf_instance);
                         } else if (OGS_FSM_CHECK(&nf_instance->sm,
                                     nrf_nf_state_exception)) {
                             ogs_error("[%s] State machine exception",
                                     nf_instance->id);
-                            ogs_sbi_message_free(&message);
 
                             nrf_nf_fsm_fini(nf_instance);
                             ogs_sbi_nf_instance_remove(nf_instance);

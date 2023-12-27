@@ -22,6 +22,36 @@
 #include "sbi-path.h"
 #include "nas-path.h"
 
+static bool maximum_number_of_gnbs_is_reached(void)
+{
+    amf_gnb_t *gnb = NULL, *next_gnb = NULL;
+    int number_of_gnbs_online = 0;
+
+    ogs_list_for_each_safe(&amf_self()->gnb_list, next_gnb, gnb) {
+        if (gnb->state.ng_setup_success) {
+            number_of_gnbs_online++;
+        }
+    }
+
+    return number_of_gnbs_online >= ogs_global_conf()->max.peer;
+}
+
+static bool gnb_plmn_id_is_foreign(amf_gnb_t *gnb)
+{
+    int i, j;
+
+    for (i = 0; i < gnb->num_of_supported_ta_list; i++) {
+        for (j = 0; j < gnb->supported_ta_list[i].num_of_bplmn_list; j++) {
+            if (memcmp(&gnb->plmn_id,
+                        &gnb->supported_ta_list[i].bplmn_list[j].plmn_id,
+                        OGS_PLMN_ID_LEN) == 0)
+                return false;
+        }
+    }
+
+    return true;
+}
+
 static bool served_tai_is_found(amf_gnb_t *gnb)
 {
     int i, j;
@@ -36,7 +66,7 @@ static bool served_tai_is_found(amf_gnb_t *gnb)
             tai.tac.v = gnb->supported_ta_list[i].tac.v;
             served_tai_index = amf_find_served_tai(&tai);
             if (served_tai_index >= 0 &&
-                    served_tai_index < OGS_MAX_NUM_OF_SERVED_TAI) {
+                    served_tai_index < OGS_MAX_NUM_OF_SUPPORTED_TA) {
                 ogs_debug("    TAC[%d]", gnb->supported_ta_list[i].tac.v);
                 ogs_debug("    PLMN_ID[MCC:%d MNC:%d]",
                     ogs_plmn_id_mcc(&gnb->supported_ta_list[i].
@@ -81,20 +111,6 @@ static bool s_nssai_is_found(amf_gnb_t *gnb)
     }
 
     return false;
-}
-
-static bool maximum_number_of_gnbs_is_reached(void)
-{
-    amf_gnb_t *gnb = NULL, *next_gnb = NULL;
-    int number_of_gnbs_online = 0;
-
-    ogs_list_for_each_safe(&amf_self()->gnb_list, next_gnb, gnb) {
-        if (gnb->state.ng_setup_success) {
-            number_of_gnbs_online++;
-        }
-    }
-
-    return number_of_gnbs_online >= ogs_app()->max.peer;
 }
 
 void ngap_handle_ng_setup_request(amf_gnb_t *gnb, ogs_ngap_message_t *message)
@@ -178,14 +194,19 @@ void ngap_handle_ng_setup_request(amf_gnb_t *gnb, ogs_ngap_message_t *message)
     ogs_ngap_GNB_ID_to_uint32(&globalGNB_ID->gNB_ID, &gnb_id);
     ogs_debug("    IP[%s] GNB_ID[0x%x]", OGS_ADDR(gnb->sctp.addr, buf), gnb_id);
 
+    memcpy(&gnb->plmn_id,
+            globalGNB_ID->pLMNIdentity.buf, sizeof(gnb->plmn_id));
+    ogs_debug("    PLMN_ID[MCC:%d MNC:%d]",
+            ogs_plmn_id_mcc(&gnb->plmn_id), ogs_plmn_id_mnc(&gnb->plmn_id));
+
     if (PagingDRX)
         ogs_debug("    PagingDRX[%ld]", *PagingDRX);
 
     /* Parse Supported TA */
     for (i = 0, gnb->num_of_supported_ta_list = 0;
             i < SupportedTAList->list.count &&
-            gnb->num_of_supported_ta_list < OGS_MAX_NUM_OF_TAI;
-                i++) {
+            gnb->num_of_supported_ta_list < OGS_MAX_NUM_OF_SUPPORTED_TA;
+            i++) {
         NGAP_SupportedTAItem_t *SupportedTAItem = NULL;
 
         SupportedTAItem = (NGAP_SupportedTAItem_t *)
@@ -242,7 +263,7 @@ void ngap_handle_ng_setup_request(amf_gnb_t *gnb, ogs_ngap_message_t *message)
                             bplmn_list[j].num_of_s_nssai = 0;
                     k < BroadcastPLMNItem->tAISliceSupportList.list.count &&
                     gnb->supported_ta_list[i].bplmn_list[j].num_of_s_nssai <
-                        OGS_MAX_NUM_OF_SLICE;
+                        OGS_MAX_NUM_OF_SLICE_SUPPORT;
                             k++) {
                 NGAP_SliceSupportItem_t *SliceSupportItem = NULL;
                 NGAP_S_NSSAI_t *s_NSSAI = NULL;
@@ -297,11 +318,19 @@ void ngap_handle_ng_setup_request(amf_gnb_t *gnb, ogs_ngap_message_t *message)
         return;
     }
 
-    if (gnb->num_of_supported_ta_list == 0) {
+    /*
+     * TS38.413
+     * Section 8.7.1.4 Abnormal Conditions
+     *
+     * If the AMF does not identify any of the PLMNs/SNPNs indicated
+     * in the NG SETUP REQUEST message, it shall reject the NG Setup
+     * procedure with an appropriate cause value.
+     */
+    if (gnb_plmn_id_is_foreign(gnb)) {
         ogs_warn("NG-Setup failure:");
-        ogs_warn("    No supported TA exist in NG-Setup request");
-        group = NGAP_Cause_PR_protocol;
-        cause = NGAP_CauseProtocol_message_not_compatible_with_receiver_state;
+        ogs_warn("    globalGNB_ID PLMN-ID is foreign");
+        group = NGAP_Cause_PR_misc;
+        cause = NGAP_CauseMisc_unknown_PLMN_or_SNPN;
 
         r = ngap_send_ng_setup_failure(gnb, group, cause);
         ogs_expect(r == OGS_OK);
@@ -457,24 +486,24 @@ void ngap_handle_initial_ue_message(amf_gnb_t *gnb, ogs_ngap_message_t *message)
                 /* If NAS(amf_ue_t) has already been associated with
                  * older NG(ran_ue_t) context */
                 if (CM_CONNECTED(amf_ue)) {
-                    /* Previous NG(ran_ue_t) context the holding timer(30secs)
-                     * is started.
-                     * Newly associated NG(ran_ue_t) context holding timer
-                     * is stopped. */
-                    ogs_debug("[%s] Start NG Holding Timer", amf_ue->suci);
-                    ogs_debug("[%s]    RAN_UE_NGAP_ID[%d] AMF_UE_NGAP_ID[%lld]",
-                            amf_ue->suci, amf_ue->ran_ue->ran_ue_ngap_id,
-                            (long long)amf_ue->ran_ue->amf_ue_ngap_id);
-
-                    /* De-associate NG with NAS/EMM */
-                    ran_ue_deassociate(amf_ue->ran_ue);
-
-                    r = ngap_send_ran_ue_context_release_command(
-                            amf_ue->ran_ue,
-                            NGAP_Cause_PR_nas, NGAP_CauseNas_normal_release,
-                            NGAP_UE_CTX_REL_NG_CONTEXT_REMOVE, 0);
-                    ogs_expect(r == OGS_OK);
-                    ogs_assert(r != OGS_ERROR);
+    /*
+     * Issue #2786
+     *
+     * In cases where the UE sends an Integrity Un-Protected Registration
+     * Request or Service Request, there is an issue of sending
+     * a UEContextReleaseCommand for the OLD RAN Context.
+     *
+     * For example, if the UE switchs off and power-on after
+     * the first connection, the 5G Core sends a UEContextReleaseCommand.
+     *
+     * However, since there is no RAN context for this on the gNB,
+     * the gNB does not send a UEContextReleaseComplete,
+     * so the deletion of the RAN Context does not function properly.
+     *
+     * To solve this problem, the 5G Core has been modified to implicitly
+     * delete the RAN Context instead of sending a UEContextReleaseCommand.
+     */
+                    HOLDING_NG_CONTEXT(amf_ue);
                 }
                 amf_ue_associate_ran_ue(amf_ue, ran_ue);
 
@@ -564,6 +593,9 @@ void ngap_handle_uplink_nas_transport(
     NGAP_NAS_PDU_t *NAS_PDU = NULL;
     NGAP_UserLocationInformation_t *UserLocationInformation = NULL;
     NGAP_UserLocationInformationNR_t *UserLocationInformationNR = NULL;
+
+    ogs_5gs_tai_t nr_tai;
+    int served_tai_index = 0;
 
     ogs_assert(gnb);
     ogs_assert(gnb->sctp.sock);
@@ -677,6 +709,22 @@ void ngap_handle_uplink_nas_transport(
     UserLocationInformationNR =
         UserLocationInformation->choice.userLocationInformationNR;
     ogs_assert(UserLocationInformationNR);
+    ogs_ngap_ASN_to_5gs_tai(&UserLocationInformationNR->tAI, &nr_tai);
+
+    served_tai_index = amf_find_served_tai(&nr_tai);
+    if (served_tai_index < 0) {
+        ogs_error("Cannot find Served TAI[PLMN_ID:%06x,TAC:%d]",
+            ogs_plmn_id_hexdump(&nr_tai.plmn_id), nr_tai.tac.v);
+        r = ngap_send_error_indication(
+                gnb, &ran_ue->ran_ue_ngap_id, &ran_ue->amf_ue_ngap_id,
+                NGAP_Cause_PR_protocol,
+                NGAP_CauseProtocol_message_not_compatible_with_receiver_state);
+        ogs_expect(r == OGS_OK);
+        ogs_assert(r != OGS_ERROR);
+        return;
+    }
+    ogs_debug("    SERVED_TAI_INDEX[%d]", served_tai_index);
+
     ogs_ngap_ASN_to_nr_cgi(
             &UserLocationInformationNR->nR_CGI, &ran_ue->saved.nr_cgi);
     ogs_ngap_ASN_to_5gs_tai(
@@ -886,6 +934,8 @@ void ngap_handle_initial_context_setup_response(
     ogs_debug("    RAN_UE_NGAP_ID[%d] AMF_UE_NGAP_ID[%lld]",
             ran_ue->ran_ue_ngap_id, (long long)ran_ue->amf_ue_ngap_id);
 
+    ran_ue->initial_context_setup_response_received = true;
+
     amf_ue = ran_ue->amf_ue;
     if (!amf_ue) {
         ogs_error("Cannot find AMF-UE Context [%lld]",
@@ -1005,6 +1055,22 @@ void ngap_handle_initial_context_setup_response(
             switch (sess->gsm_message.type) {
             case OGS_NAS_5GS_PDU_SESSION_MODIFICATION_COMMAND:
                 r = nas_send_pdu_session_modification_command(sess,
+                            sess->gsm_message.n1buf, sess->gsm_message.n2buf);
+                ogs_expect(r == OGS_OK);
+                ogs_assert(r != OGS_ERROR);
+
+                /* n1buf is de-allocated
+                 * in gmm_build_dl_nas_transport() */
+                sess->gsm_message.n1buf = NULL;
+                /* n2buf is de-allocated
+                 * in ngap_build_pdu_session_resource_modify_request() */
+                sess->gsm_message.n2buf = NULL;
+
+                AMF_SESS_CLEAR_5GSM_MESSAGE(sess);
+
+                break;
+            case OGS_NAS_5GS_PDU_SESSION_RELEASE_COMMAND:
+                r = nas_send_pdu_session_release_command(sess,
                             sess->gsm_message.n1buf, sess->gsm_message.n2buf);
                 ogs_expect(r == OGS_OK);
                 ogs_assert(r != OGS_ERROR);
@@ -1644,8 +1710,31 @@ void ngap_handle_ue_context_release_action(ran_ue_t *ran_ue)
          * to prevent retransmission of NAS messages.
          */
         CLEAR_AMF_UE_ALL_TIMERS(amf_ue);
+    }
+
+    switch (ran_ue->ue_ctx_rel_action) {
+    case NGAP_UE_CTX_REL_NG_CONTEXT_REMOVE:
+        ogs_debug("    Action: NG context remove");
+        ran_ue_remove(ran_ue);
+        break;
+    case NGAP_UE_CTX_REL_NG_REMOVE_AND_UNLINK:
+        ogs_debug("    Action: NG normal release");
+        ran_ue_remove(ran_ue);
+        if (!amf_ue) {
+            ogs_error("No UE(amf-ue) Context");
+            return;
+        }
+        amf_ue_deassociate(amf_ue);
 
         /*
+         * When AMF release the NAS signalling connection,
+         * ran_ue context is removed by ran_ue_remove() and
+         * amf_ue/ran_ue is de-associated by amf_ue_deassociate().
+         *
+         * In this case, implicit deregistration is attempted
+         * by the mobile reachable timer according to the standard document,
+         * and amf_ue will be removed by amf_ue_remove().
+         *
          * TS 24.501
          * 5.3.7 Handling of the periodic registration update timer and
          *
@@ -1664,28 +1753,11 @@ void ngap_handle_ue_context_release_action(ran_ue_t *ran_ue)
          * TODO: If the UE is registered for emergency services, the AMF shall
          * set the mobile reachable timer with a value equal to timer T3512.
          */
-        if (OGS_FSM_CHECK(&amf_ue->sm, gmm_state_registered) &&
-            ran_ue->ue_ctx_rel_action == NGAP_UE_CTX_REL_NG_REMOVE_AND_UNLINK) {
+        ogs_timer_start(amf_ue->mobile_reachable.timer,
+                ogs_time_from_sec(amf_self()->time.t3512.value + 240));
 
-            ogs_timer_start(amf_ue->mobile_reachable.timer,
-                    ogs_time_from_sec(amf_self()->time.t3512.value + 240));
-        }
-    }
+        break;
 
-    switch (ran_ue->ue_ctx_rel_action) {
-    case NGAP_UE_CTX_REL_NG_CONTEXT_REMOVE:
-        ogs_debug("    Action: NG context remove");
-        ran_ue_remove(ran_ue);
-        break;
-    case NGAP_UE_CTX_REL_NG_REMOVE_AND_UNLINK:
-        ogs_debug("    Action: NG normal release");
-        ran_ue_remove(ran_ue);
-        if (!amf_ue) {
-            ogs_error("No UE(amf-ue) Context");
-            return;
-        }
-        amf_ue_deassociate(amf_ue);
-        break;
     case NGAP_UE_CTX_REL_UE_CONTEXT_REMOVE:
         ogs_debug("    Action: UE context remove");
         ran_ue_remove(ran_ue);
@@ -2611,6 +2683,9 @@ void ngap_handle_path_switch_request(
 
     amf_nsmf_pdusession_sm_context_param_t param;
 
+    ogs_5gs_tai_t nr_tai;
+    int served_tai_index = 0;
+
     ogs_assert(gnb);
     ogs_assert(gnb->sctp.sock);
 
@@ -2767,6 +2842,22 @@ void ngap_handle_path_switch_request(
     UserLocationInformationNR =
             UserLocationInformation->choice.userLocationInformationNR;
     ogs_assert(UserLocationInformationNR);
+    ogs_ngap_ASN_to_5gs_tai(&UserLocationInformationNR->tAI, &nr_tai);
+
+    served_tai_index = amf_find_served_tai(&nr_tai);
+    if (served_tai_index < 0) {
+        ogs_error("Cannot find Served TAI[PLMN_ID:%06x,TAC:%d]",
+            ogs_plmn_id_hexdump(&nr_tai.plmn_id), nr_tai.tac.v);
+        r = ngap_send_error_indication(
+                gnb, &ran_ue->ran_ue_ngap_id, &ran_ue->amf_ue_ngap_id,
+                NGAP_Cause_PR_protocol,
+                NGAP_CauseProtocol_message_not_compatible_with_receiver_state);
+        ogs_expect(r == OGS_OK);
+        ogs_assert(r != OGS_ERROR);
+        return;
+    }
+    ogs_debug("    SERVED_TAI_INDEX[%d]", served_tai_index);
+
     ogs_ngap_ASN_to_nr_cgi(
             &UserLocationInformationNR->nR_CGI, &ran_ue->saved.nr_cgi);
     ogs_ngap_ASN_to_5gs_tai(
@@ -3139,6 +3230,8 @@ void ngap_handle_handover_required(
     target_ue->ue_context_requested = source_ue->ue_context_requested;
     target_ue->initial_context_setup_request_sent =
             source_ue->initial_context_setup_request_sent;
+    target_ue->initial_context_setup_response_received =
+            source_ue->initial_context_setup_response_received;
 
     target_ue->psimask.activated = source_ue->psimask.activated;
 
@@ -4015,7 +4108,7 @@ void ngap_handle_handover_notification(
             NGAP_Cause_PR_radioNetwork,
             NGAP_CauseRadioNetwork_successful_handover,
             NGAP_UE_CTX_REL_NG_HANDOVER_COMPLETE,
-            ogs_app()->time.handover.duration);
+            ogs_local_conf()->time.handover.duration);
     ogs_expect(r == OGS_OK);
     ogs_assert(r != OGS_ERROR);
 
@@ -4163,7 +4256,7 @@ void ngap_handle_ran_configuration_update(
                                 bplmn_list[j].num_of_s_nssai = 0;
                         k < BroadcastPLMNItem->tAISliceSupportList.list.count &&
                         gnb->supported_ta_list[i].bplmn_list[j].num_of_s_nssai <
-                            OGS_MAX_NUM_OF_SLICE;
+                            OGS_MAX_NUM_OF_SLICE_SUPPORT;
                                 k++) {
                     NGAP_SliceSupportItem_t *SliceSupportItem = NULL;
                     NGAP_S_NSSAI_t *s_NSSAI = NULL;

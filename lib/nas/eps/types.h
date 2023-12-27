@@ -56,6 +56,14 @@ typedef struct ogs_nas_location_area_identification_s {
 
 typedef ogs_nas_location_area_identification_t ogs_nas_lai_t;
 
+/* 3GPP TS 24.008 10.5.5.15 Routing area identification */
+typedef struct ogs_nas_routing_area_identification_s {
+    ogs_nas_location_area_identification_t lai;
+    uint8_t rac;
+} __attribute__ ((packed)) ogs_nas_routing_area_identification_t;
+
+typedef ogs_nas_routing_area_identification_t ogs_nas_rai_t;
+
 /* 9.9.2.3 Mobile identity
  * See subclause 10.5.1.4 in 3GPP TS 24.008 [13].
  * O TLV 7-10 */
@@ -331,7 +339,7 @@ typedef struct ogs_nas_eps_network_feature_support_s {
 ED7(uint8_t control_plane_ciot_eps_optimization:1;,
     uint8_t emm_registered_without_pdn_connectivity:1;,
     uint8_t support_of_extended_service_request_for_packet_services:1;,
-    uint8_t cs_lcs_no_information_about_support_of_location_service_via_cs_domain_is_avaiable:2;,
+    uint8_t cs_lcs_no_information_about_support_of_location_service_via_cs_domain_is_available:2;,
     uint8_t location_service_via_epc:1;,
     uint8_t emergency_bearer_services_in_s1_mode:1;,
     uint8_t ims_voice_over_ps_session_in_s1_mode:1;)

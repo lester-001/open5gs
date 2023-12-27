@@ -82,7 +82,7 @@ void smf_context_init(void)
     ogs_log_install_domain(&__gsm_log_domain, "gsm", ogs_core()->log.level);
 
     ogs_pool_init(&smf_gtp_node_pool, ogs_app()->pool.nf);
-    ogs_pool_init(&smf_ue_pool, ogs_app()->max.ue);
+    ogs_pool_init(&smf_ue_pool, ogs_global_conf()->max.ue);
     ogs_pool_init(&smf_bearer_pool, ogs_app()->pool.bearer);
     ogs_pool_init(&smf_pf_pool,
             ogs_app()->pool.bearer * OGS_MAX_NUM_OF_FLOW_IN_BEARER);
@@ -172,11 +172,11 @@ static int smf_context_validation(void)
         return OGS_ERROR;
     }
     if (ogs_list_first(&ogs_gtp_self()->gtpu_list) == NULL) {
-        ogs_error("No smf.gtpu in '%s'", ogs_app()->file);
+        ogs_error("No smf.gtpu.address in '%s'", ogs_app()->file);
         return OGS_ERROR;
     }
     if (ogs_list_first(&ogs_pfcp_self()->subnet_list) == NULL) {
-        ogs_error("No smf.subnet: in '%s'", ogs_app()->file);
+        ogs_error("No smf.session.subnet: in '%s'", ogs_app()->file);
         return OGS_ERROR;
     }
 
@@ -422,7 +422,8 @@ int smf_context_parse_config(void)
                                         if (!strcmp(conn_key, "identity")) {
                                             identity =
                                                 ogs_yaml_iter_value(&conn_iter);
-                                        } else if (!strcmp(conn_key, "addr")) {
+                                        } else if (!strcmp(conn_key,
+                                                    "address")) {
                                             addr =
                                                 ogs_yaml_iter_value(&conn_iter);
                                         } else if (!strcmp(conn_key, "port")) {
@@ -936,9 +937,17 @@ int smf_context_parse_config(void)
                     }
                 } else if (!strcmp(smf_key, "pfcp")) {
                     /* handle config in pfcp library */
-                } else if (!strcmp(smf_key, "subnet")) {
+                } else if (!strcmp(smf_key, "upf")) {
                     /* handle config in pfcp library */
+                } else if (!strcmp(smf_key, "session")) {
+                    /* handle config in pfcp library */
+                } else if (!strcmp(smf_key, "default")) {
+                    /* handle config in sbi library */
                 } else if (!strcmp(smf_key, "sbi")) {
+                    /* handle config in sbi library */
+                } else if (!strcmp(smf_key, "nrf")) {
+                    /* handle config in sbi library */
+                } else if (!strcmp(smf_key, "scp")) {
                     /* handle config in sbi library */
                 } else if (!strcmp(smf_key, "service_name")) {
                     /* handle config in sbi library */
@@ -997,7 +1006,7 @@ static smf_ue_t *smf_ue_add(void)
     ogs_pool_alloc(&smf_ue_pool, &smf_ue);
     if (!smf_ue) {
         ogs_error("Maximum number of smf_ue[%lld] reached",
-                    (long long)ogs_app()->max.ue);
+                    (long long)ogs_global_conf()->max.ue);
         return NULL;
     }
     memset(smf_ue, 0, sizeof *smf_ue);
@@ -1018,8 +1027,10 @@ smf_ue_t *smf_ue_add_by_supi(char *supi)
 
     ogs_assert(supi);
 
-    if ((smf_ue = smf_ue_add()) == NULL)
+    if ((smf_ue = smf_ue_add()) == NULL) {
+        ogs_error("smf_ue_add_by_supi() failed");
         return NULL;
+    }
 
     smf_ue->supi = ogs_strdup(supi);
     ogs_assert(smf_ue->supi);
@@ -1138,7 +1149,7 @@ static ogs_pfcp_node_t *selected_upf_node(
             compare_ue_info(node, sess) == true) return node;
     }
 
-    if (ogs_app()->parameter.no_pfcp_rr_select == 0) {
+    if (ogs_global_conf()->parameter.no_pfcp_rr_select == 0) {
         /* continue search from current position */
         next = ogs_list_next(current);
         for (node = next; node; node = ogs_list_next(node)) {
@@ -1467,7 +1478,10 @@ smf_sess_t *smf_sess_add_by_sbi_message(ogs_sbi_message_t *message)
 
     ogs_assert(message);
     SmContextCreateData = message->SmContextCreateData;
-    ogs_assert(SmContextCreateData);
+    if (!SmContextCreateData) {
+        ogs_error("No SmContextCreateData");
+        return NULL;
+    }
 
     if (!SmContextCreateData->supi) {
         ogs_error("No SUPI");
@@ -1482,14 +1496,18 @@ smf_sess_t *smf_sess_add_by_sbi_message(ogs_sbi_message_t *message)
     smf_ue = smf_ue_find_by_supi(SmContextCreateData->supi);
     if (!smf_ue) {
         smf_ue = smf_ue_add_by_supi(SmContextCreateData->supi);
-        if (!smf_ue)
+        if (!smf_ue) {
+            ogs_error("smf_ue_add_by_supi() failed");
             return NULL;
+        }
     }
 
     sess = smf_sess_find_by_psi(smf_ue, SmContextCreateData->pdu_session_id);
     if (sess) {
         ogs_warn("OLD Session Will Release [SUPI:%s,PDU Session identity:%d]",
                 SmContextCreateData->supi, SmContextCreateData->pdu_session_id);
+        smf_metrics_inst_by_slice_add(&sess->serving_plmn_id, &sess->s_nssai,
+                SMF_METR_GAUGE_SM_SESSIONNBR, -1);
         smf_sess_remove(sess);
     }
 
@@ -1555,7 +1573,6 @@ uint8_t smf_sess_set_ue_ip(smf_sess_t *sess)
                 sess->session.name, (uint8_t *)&sess->session.ue_ip.addr);
         if (!sess->ipv4) {
             ogs_error("ogs_pfcp_ue_ip_alloc() failed[%d]", cause_value);
-            ogs_assert(cause_value != OGS_PFCP_CAUSE_REQUEST_ACCEPTED);
             return cause_value;
         }
         sess->session.paa.addr = sess->ipv4->addr[0];
@@ -1566,7 +1583,6 @@ uint8_t smf_sess_set_ue_ip(smf_sess_t *sess)
                 sess->session.name, sess->session.ue_ip.addr6);
         if (!sess->ipv6) {
             ogs_error("ogs_pfcp_ue_ip_alloc() failed[%d]", cause_value);
-            ogs_assert(cause_value != OGS_PFCP_CAUSE_REQUEST_ACCEPTED);
             return cause_value;
         }
 
@@ -1582,7 +1598,6 @@ uint8_t smf_sess_set_ue_ip(smf_sess_t *sess)
                 sess->session.name, (uint8_t *)&sess->session.ue_ip.addr);
         if (!sess->ipv4) {
             ogs_error("ogs_pfcp_ue_ip_alloc() failed[%d]", cause_value);
-            ogs_assert(cause_value != OGS_PFCP_CAUSE_REQUEST_ACCEPTED);
             return cause_value;
         }
         sess->ipv6 = ogs_pfcp_ue_ip_alloc(&cause_value, AF_INET6,
@@ -1713,6 +1728,8 @@ void smf_sess_remove(smf_sess_t *sess)
 
     if (sess->session.name)
         ogs_free(sess->session.name);
+    if (sess->full_dnn)
+        ogs_free(sess->full_dnn);
 
     if (sess->session.ipv4_framed_routes) {
         for (i = 0; i < OGS_MAX_NUM_OF_FRAMED_ROUTES_IN_PDI; i++) {
@@ -1997,7 +2014,7 @@ smf_bearer_t *smf_qos_flow_add(smf_sess_t *sess)
     qos_flow->sess = sess;
 
     ogs_list_add(&sess->bearer_list, qos_flow);
-    smf_metrics_inst_by_5qi_add(&sess->plmn_id, &sess->s_nssai,
+    smf_metrics_inst_by_5qi_add(&sess->serving_plmn_id, &sess->s_nssai,
             sess->session.qos.index, SMF_METR_GAUGE_SM_QOSFLOWNBR, 1);
     smf_metrics_inst_global_inc(SMF_METR_GLOB_GAUGE_BEARERS_ACTIVE);
 
@@ -2971,7 +2988,7 @@ int smf_pco_build(uint8_t *pco_buf, uint8_t *buffer, int length)
             break;
         case OGS_PCO_ID_IPV4_LINK_MTU_REQUEST:
             if (smf_self()->mtu) {
-                mtu = htons(smf_self()->mtu);
+                mtu = htobe16(smf_self()->mtu);
                 smf.ids[smf.num_of_id].id = ue.ids[i].id;
                 smf.ids[smf.num_of_id].len = sizeof(uint16_t);
                 smf.ids[smf.num_of_id].data = &mtu;
@@ -3059,7 +3076,7 @@ static void stats_remove_smf_session(smf_sess_t *sess)
     ogs_info("[Removed] Number of SMF-Sessions is now %d", num_of_smf_sess);
 }
 
-int get_sess_load(void)
+int smf_instance_get_load(void)
 {
     return (((ogs_pool_size(&smf_sess_pool) -
             ogs_pool_avail(&smf_sess_pool)) * 100) /

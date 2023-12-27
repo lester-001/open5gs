@@ -358,8 +358,8 @@ void smf_5gc_n4_handle_session_modification_response(
         char *strerror = ogs_msprintf(
                 "PFCP Cause [%d] : Not Accepted", rsp->cause.u8);
         if (stream)
-            smf_sbi_send_sm_context_update_error(
-                    stream, status, strerror, NULL, NULL, NULL);
+            smf_sbi_send_sm_context_update_error_log(
+                    stream, status, strerror, NULL);
         ogs_error("%s", strerror);
         ogs_free(strerror);
         return;
@@ -369,8 +369,8 @@ void smf_5gc_n4_handle_session_modification_response(
 
     if (sess->upf_n3_addr == NULL && sess->upf_n3_addr6 == NULL) {
         if (stream)
-            smf_sbi_send_sm_context_update_error(
-                    stream, status, "No UP F_TEID", NULL, NULL, NULL);
+            smf_sbi_send_sm_context_update_error_log(
+                    stream, status, "No UP F_TEID", NULL);
         return;
     }
 
@@ -389,7 +389,7 @@ void smf_5gc_n4_handle_session_modification_response(
                     smf_5gc_pfcp_send_all_pdr_modification_request(
                         sess, stream,
                         OGS_PFCP_MODIFY_INDIRECT|OGS_PFCP_MODIFY_REMOVE,
-                        ogs_app()->time.handover.duration));
+                        ogs_local_conf()->time.handover.duration));
             }
 
             smf_sbi_send_sm_context_updated_data_ho_state(
@@ -401,7 +401,12 @@ void smf_5gc_n4_handle_session_modification_response(
                 smf_sbi_send_sm_context_updated_data_up_cnx_state(
                         sess, stream, OpenAPI_up_cnx_state_ACTIVATED);
             } else {
-                ogs_assert(true == ogs_sbi_send_http_status_no_content(stream));
+                int r = smf_sbi_discover_and_send(
+                        OGS_SBI_SERVICE_TYPE_NUDM_UECM, NULL,
+                        smf_nudm_uecm_build_registration,
+                        sess, stream, SMF_UECM_STATE_REGISTERED, NULL);
+                ogs_expect(r == OGS_OK);
+                ogs_assert(r != OGS_ERROR);
             }
         }
 
@@ -490,7 +495,7 @@ void smf_5gc_n4_handle_session_modification_response(
             ogs_list_for_each_entry_safe(&sess->qos_flow_to_modify_list,
                     next, qos_flow, to_modify_node) {
                 smf_metrics_inst_by_5qi_add(
-                        &qos_flow->sess->plmn_id,
+                        &qos_flow->sess->serving_plmn_id,
                         &qos_flow->sess->s_nssai,
                         qos_flow->sess->session.qos.index,
                         SMF_METR_GAUGE_SM_QOSFLOWNBR, -1);
@@ -522,7 +527,7 @@ void smf_5gc_n4_handle_session_modification_response(
             ogs_list_for_each_entry_safe(&sess->qos_flow_to_modify_list,
                     next, qos_flow, to_modify_node) {
                 smf_metrics_inst_by_5qi_add(
-                        &qos_flow->sess->plmn_id,
+                        &qos_flow->sess->serving_plmn_id,
                         &qos_flow->sess->s_nssai,
                         qos_flow->sess->session.qos.index,
                         SMF_METR_GAUGE_SM_QOSFLOWNBR, -1);
@@ -694,8 +699,8 @@ int smf_5gc_n4_handle_session_deletion_response(
         } else if (trigger == OGS_PFCP_DELETE_TRIGGER_UE_REQUESTED ||
             trigger == OGS_PFCP_DELETE_TRIGGER_AMF_UPDATE_SM_CONTEXT) {
             ogs_assert(stream);
-            smf_sbi_send_sm_context_update_error(
-                stream, status, strerror, NULL, NULL, NULL);
+            smf_sbi_send_sm_context_update_error_log(
+                stream, status, strerror, NULL);
         } else if (trigger == OGS_PFCP_DELETE_TRIGGER_AMF_RELEASE_SM_CONTEXT) {
             ogs_assert(stream);
             ogs_assert(true ==

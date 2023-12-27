@@ -55,8 +55,8 @@ git clone https://github.com/herlesupreeth/docker_open5gs
 cd docker_open5gs/base
 docker build --no-cache --force-rm -t docker_open5gs .
 
-cd ../kamailio_base
-docker build --no-cache --force-rm -t open5gs_kamailio .
+cd ../ims_base
+docker build --no-cache --force-rm -t docker_kamailio .
 ```
 
 #### 3. Configuring your setup
@@ -76,7 +76,7 @@ SGWU_ADVERTISE_IP --> Change this to value of DOCKER_HOST_IP set above only if e
 
 If eNB is NOT running in the same docker network/host as the host running the dockerized Core + IMS then follow the below additional steps
 
-Under `mme` section in docker compose file (`docker-compose.yaml`, `nsa-deploy.yaml`), uncomment the following part
+Under `mme` section in docker-compose file (`docker-compose.yaml`, `nsa-deploy.yaml`), uncomment the following part
 
 ```
 ...
@@ -85,7 +85,7 @@ Under `mme` section in docker compose file (`docker-compose.yaml`, `nsa-deploy.y
 ...
 ```
 
-Under `sgwu` section in docker compose file (`docker-compose.yaml`, `nsa-deploy.yaml`), uncomment the following part
+Under `sgwu` section in docker-compose file (`docker-compose.yaml`, `nsa-deploy.yaml`), uncomment the following part
 
 ```
 ...
@@ -99,7 +99,8 @@ Under `sgwu` section in docker compose file (`docker-compose.yaml`, `nsa-deploy.
 ```
 cd docker_open5gs
 source .env
-docker-compose build --no-cache
+docker-compose -f deploy-all.yaml build --no-cache
+docker-compose -f deploy-all.yaml up
 ```
 
 #### 5. (Optional) Run srsENB in a separate container

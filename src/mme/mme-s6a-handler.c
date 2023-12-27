@@ -33,7 +33,7 @@
 static uint8_t emm_cause_from_diameter(
                 const uint32_t *dia_err, const uint32_t *dia_exp_err);
 
-static uint8_t mme_ue_session_from_slice_data(mme_ue_t *mme_ue, 
+static uint8_t mme_ue_session_from_slice_data(mme_ue_t *mme_ue,
     ogs_slice_data_t *slice_data);
 
 uint8_t mme_s6a_handle_aia(
@@ -261,29 +261,11 @@ void mme_s6a_handle_clr(mme_ue_t *mme_ue, ogs_diam_s6a_message_t *s6a_message)
          * we need to check whether UE is IDLE or not.
          */
         if (ECM_IDLE(mme_ue)) {
-            if (ogs_timer_running(mme_ue->t_implicit_detach.timer)) {
-                /*
-                * TS 24.301 5.3.7
-                * If ISR is not activated, the network behaviour upon expiry of
-                * the mobile reachable timer is network dependent, but typically
-                * the network stops sending paging messages to the UE on the
-                * first expiry, and may take other appropriate actions
-                */
-                ogs_debug("[%s] Paging stopped: Mobile Reachable timer expiry",
-                    mme_ue->imsi_bcd);
-                if (MME_P_TMSI_IS_AVAILABLE(mme_ue)) {
-                    ogs_assert(OGS_OK == sgsap_send_detach_indication(mme_ue));
-                } else {
-                    mme_send_delete_session_or_detach(mme_ue);
-                }
-                MME_CLEAR_PAGING_INFO(mme_ue);
-            } else {
-                MME_STORE_PAGING_INFO(mme_ue,
-                    MME_PAGING_TYPE_DETACH_TO_UE, NULL);
-                r = s1ap_send_paging(mme_ue, S1AP_CNDomain_ps);
-                ogs_expect(r == OGS_OK);
-                ogs_assert(r != OGS_ERROR);
-            }
+            MME_STORE_PAGING_INFO(mme_ue,
+                MME_PAGING_TYPE_DETACH_TO_UE, NULL);
+            r = s1ap_send_paging(mme_ue, S1AP_CNDomain_ps);
+            ogs_expect(r == OGS_OK);
+            ogs_assert(r != OGS_ERROR);
         } else {
             MME_CLEAR_PAGING_INFO(mme_ue);
             r = nas_eps_send_detach_request(mme_ue);
@@ -297,7 +279,18 @@ void mme_s6a_handle_clr(mme_ue_t *mme_ue, ogs_diam_s6a_message_t *s6a_message)
         }
         break;
     case OGS_DIAM_S6A_CT_MME_UPDATE_PROCEDURE:
+    case OGS_DIAM_S6A_CT_SGSN_UPDATE_PROCEDURE:
         mme_ue->detach_type = MME_DETACH_TYPE_HSS_IMPLICIT;
+
+        /* 3GPP TS 23.401 D.3.5.5 8), 3GPP TS 23.060 6.9.1.2.2 8):
+         * "When the timer described in step 2 is running, the MM and PDP/EPS
+         * Bearer Contexts and any affected S-GW resources are removed when the
+         * timer expires and the SGSN received a Cancel Location".
+         */
+        if (mme_ue->gn.t_gn_holding->running) {
+            ogs_debug("Gn Holding Timer is running, delay removing UE resources");
+            break;
+        }
 
         /*
          * There is no need to send NAS or S1AP message to the UE.
@@ -317,7 +310,7 @@ void mme_s6a_handle_clr(mme_ue_t *mme_ue, ogs_diam_s6a_message_t *s6a_message)
     }
 }
 
-static uint8_t mme_ue_session_from_slice_data(mme_ue_t *mme_ue, 
+static uint8_t mme_ue_session_from_slice_data(mme_ue_t *mme_ue,
     ogs_slice_data_t *slice_data)
 {
     int i;

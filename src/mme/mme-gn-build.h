@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 by Sukchan Lee <acetcom@gmail.com>
+ * Copyright (C) 2023 by sysmocom - s.f.m.c. GmbH <info@sysmocom.de>
  *
  * This file is part of Open5GS.
  *
@@ -17,17 +17,24 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef OGS_DBI_TIMER_H
-#define OGS_DBI_TIMER_H
+#ifndef MME_GN_BUILD_H
+#define MME_GN_BUILD_H
+
+#include "ogs-nas-eps.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void ogs_timer_dbi_poll_change_stream(void *data);
-
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* OGS_DBI_TIMER_H */
+ogs_pkbuf_t *mme_gn_build_sgsn_context_response(
+                mme_ue_t *mme_ue, uint8_t cause);
+
+ogs_pkbuf_t *mme_gn_build_ran_information_relay(
+                uint8_t type, const uint8_t *buf, size_t len,
+                const ogs_nas_rai_t *rai, uint16_t cell_id);
+
+#endif /* MME_S11_BUILD_H */

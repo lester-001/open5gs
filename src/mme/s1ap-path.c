@@ -309,6 +309,56 @@ int s1ap_send_s1_setup_failure(
     return rv;
 }
 
+int s1ap_send_enb_configuration_update_ack(mme_enb_t *enb)
+{
+    int rv;
+    ogs_pkbuf_t *s1ap_buffer;
+
+    ogs_debug("ENBConfigurationUpdateAcknowledge");
+
+    if (!mme_enb_cycle(enb)) {
+        ogs_error("eNB has already been removed");
+        return OGS_NOTFOUND;
+    }
+
+    s1ap_buffer = s1ap_build_enb_configuration_update_ack();
+    if (!s1ap_buffer) {
+        ogs_error("s1ap_build_setup_rsp() failed");
+        return OGS_ERROR;
+    }
+
+    rv = s1ap_send_to_enb(enb, s1ap_buffer, S1AP_NON_UE_SIGNALLING);
+    ogs_expect(rv == OGS_OK);
+
+    return rv;
+}
+
+int s1ap_send_enb_configuration_update_failure(
+        mme_enb_t *enb, S1AP_Cause_PR group, long cause)
+{
+    int rv;
+    ogs_pkbuf_t *s1ap_buffer;
+
+    ogs_debug("ENBConfigurationUpdateFailure");
+
+    if (!mme_enb_cycle(enb)) {
+        ogs_error("eNB has already been removed");
+        return OGS_NOTFOUND;
+    }
+
+    s1ap_buffer = s1ap_build_enb_configuration_update_failure(
+            group, cause, S1AP_TimeToWait_v10s);
+    if (!s1ap_buffer) {
+        ogs_error("s1ap_build_setup_failure() failed");
+        return OGS_ERROR;
+    }
+
+    rv = s1ap_send_to_enb(enb, s1ap_buffer, S1AP_NON_UE_SIGNALLING);
+    ogs_expect(rv == OGS_OK);
+
+    return rv;
+}
+
 int s1ap_send_initial_context_setup_request(mme_ue_t *mme_ue)
 {
     int rv;
@@ -419,8 +469,6 @@ int s1ap_send_paging(mme_ue_t *mme_ue, S1AP_CNDomain_t cn_domain)
         return OGS_NOTFOUND;
     }
 
-    ogs_assert(ogs_timer_running(mme_ue->t_implicit_detach.timer) == false);
-
     /* Find enB with matched TAI */
     ogs_list_for_each(&mme_self()->enb_list, enb) {
         for (i = 0; i < enb->num_of_supported_ta_list; i++) {
@@ -480,6 +528,31 @@ int s1ap_send_mme_configuration_transfer(
     s1apbuf = s1ap_build_mme_configuration_transfer(SONConfigurationTransfer);
     if (!s1apbuf) {
         ogs_error("s1ap_build_mme_configuration_transfer() failed");
+        return OGS_ERROR;
+    }
+
+    rv = s1ap_send_to_enb(target_enb, s1apbuf, S1AP_NON_UE_SIGNALLING);
+    ogs_expect(rv == OGS_OK);
+
+    return rv;
+}
+
+int s1ap_send_mme_direct_information_transfer(
+        mme_enb_t *target_enb, const uint8_t *buf, size_t buf_len)
+{
+    int rv;
+    ogs_pkbuf_t *s1apbuf = NULL;
+
+    ogs_debug("Tx MME Direct Information Transfer");
+
+    if (!mme_enb_cycle(target_enb)) {
+        ogs_error("eNB has already been removed");
+        return OGS_NOTFOUND;
+    }
+
+    s1apbuf = s1ap_build_direct_information_transfer(buf, buf_len);
+    if (!s1apbuf) {
+        ogs_error("s1ap_build_direct_information_transfer() failed");
         return OGS_ERROR;
     }
 

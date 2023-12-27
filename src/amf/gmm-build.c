@@ -96,7 +96,7 @@ ogs_pkbuf_t *gmm_build_registration_accept(amf_ue_t *amf_ue)
     served_tai_index = amf_find_served_tai(&amf_ue->nr_tai);
     ogs_debug("[%s]    SERVED_TAI_INDEX[%d]", amf_ue->supi, served_tai_index);
     ogs_assert(served_tai_index >= 0 &&
-            served_tai_index < OGS_MAX_NUM_OF_SERVED_TAI);
+            served_tai_index < OGS_MAX_NUM_OF_SUPPORTED_TA);
 
     ogs_assert(OGS_OK ==
         ogs_nas_5gs_tai_list_build(&registration_accept->tai_list,
@@ -129,15 +129,14 @@ ogs_pkbuf_t *gmm_build_registration_accept(amf_ue_t *amf_ue)
     network_feature_support->
         ims_voice_over_ps_session_over_3gpp_access_indicator = 1;
 
-    /* Set T3512 */
-    if (amf_self()->time.t3512.value) {
-        rv = ogs_nas_gprs_timer_3_from_sec(
-                &t3512_value->t, amf_self()->time.t3512.value);
-        ogs_assert(rv == OGS_OK);
-        registration_accept->presencemask |=
-            OGS_NAS_5GS_REGISTRATION_ACCEPT_T3512_VALUE_PRESENT;
-        t3512_value->length = 1;
-    }
+    /* Set T3512 : Mandatory in Open5GS */
+    ogs_assert(amf_self()->time.t3512.value);
+    rv = ogs_nas_gprs_timer_3_from_sec(
+            &t3512_value->t, amf_self()->time.t3512.value);
+    ogs_assert(rv == OGS_OK);
+    registration_accept->presencemask |=
+        OGS_NAS_5GS_REGISTRATION_ACCEPT_T3512_VALUE_PRESENT;
+    t3512_value->length = 1;
 
     /* Set T3502 */
     if (amf_self()->time.t3502.value) {
@@ -173,11 +172,16 @@ ogs_pkbuf_t *gmm_build_registration_accept(amf_ue_t *amf_ue)
     return pkbuf;
 }
 
-ogs_pkbuf_t *gmm_build_registration_reject(ogs_nas_5gmm_cause_t gmm_cause)
+ogs_pkbuf_t *gmm_build_registration_reject(
+        amf_ue_t *amf_ue, ogs_nas_5gmm_cause_t gmm_cause)
 {
     ogs_nas_5gs_message_t message;
     ogs_nas_5gs_registration_reject_t *registration_reject =
         &message.gmm.registration_reject;
+    ogs_nas_rejected_nssai_t *rejected_nssai =
+        &registration_reject->rejected_nssai;
+
+    ogs_assert(amf_ue);
 
     memset(&message, 0, sizeof(message));
     message.gmm.h.extended_protocol_discriminator =
@@ -185,6 +189,14 @@ ogs_pkbuf_t *gmm_build_registration_reject(ogs_nas_5gmm_cause_t gmm_cause)
     message.gmm.h.message_type = OGS_NAS_5GS_REGISTRATION_REJECT;
 
     registration_reject->gmm_cause = gmm_cause;
+
+    if (amf_ue->rejected_nssai.num_of_s_nssai) {
+        ogs_nas_build_rejected_nssai(rejected_nssai,
+                amf_ue->rejected_nssai.s_nssai,
+                amf_ue->rejected_nssai.num_of_s_nssai);
+        registration_reject->presencemask |=
+            OGS_NAS_5GS_REGISTRATION_REJECT_REJECTED_NSSAI_PRESENT;
+    }
 
     return ogs_nas_5gs_plain_encode(&message);
 }
@@ -306,7 +318,6 @@ ogs_pkbuf_t *gmm_build_de_registration_request(
         OGS_NAS_EXTENDED_PROTOCOL_DISCRIMINATOR_5GMM;
     message.gmm.h.message_type = OGS_NAS_5GS_DEREGISTRATION_REQUEST_TO_UE;
 
-    dereg_req->de_registration_type.switch_off = 1;
     dereg_req->de_registration_type.re_registration_required =
         dereg_reason == OpenAPI_deregistration_reason_REREGISTRATION_REQUIRED;
     dereg_req->de_registration_type.access_type = OGS_ACCESS_TYPE_3GPP;
@@ -539,50 +550,55 @@ ogs_pkbuf_t *gmm_build_configuration_update_command(
                 &amf_self()->short_name, sizeof(ogs_nas_network_name_t));
         }
 
-        ogs_gettimeofday(&tv);
-        ogs_gmtime(tv.tv_sec, &gmt);
-        ogs_localtime(tv.tv_sec, &local);
+        if (!ogs_global_conf()->parameter.no_time_zone_information) {
+            ogs_gettimeofday(&tv);
+            ogs_gmtime(tv.tv_sec, &gmt);
+            ogs_localtime(tv.tv_sec, &local);
 
-        ogs_info("    UTC [%04d-%02d-%02dT%02d:%02d:%02d] "
-                "Timezone[%d]/DST[%d]",
-            gmt.tm_year+1900, gmt.tm_mon+1, gmt.tm_mday,
-            gmt.tm_hour, gmt.tm_min, gmt.tm_sec,
-            (int)gmt.tm_gmtoff, gmt.tm_isdst);
-        ogs_info("    LOCAL [%04d-%02d-%02dT%02d:%02d:%02d] "
-                "Timezone[%d]/DST[%d]",
-            local.tm_year+1900, local.tm_mon+1, local.tm_mday,
-            local.tm_hour, local.tm_min, local.tm_sec,
-            (int)local.tm_gmtoff, local.tm_isdst);
+            ogs_info("    UTC [%04d-%02d-%02dT%02d:%02d:%02d] "
+                    "Timezone[%d]/DST[%d]",
+                gmt.tm_year+1900, gmt.tm_mon+1, gmt.tm_mday,
+                gmt.tm_hour, gmt.tm_min, gmt.tm_sec,
+                (int)gmt.tm_gmtoff, gmt.tm_isdst);
+            ogs_info("    LOCAL [%04d-%02d-%02dT%02d:%02d:%02d] "
+                    "Timezone[%d]/DST[%d]",
+                local.tm_year+1900, local.tm_mon+1, local.tm_mday,
+                local.tm_hour, local.tm_min, local.tm_sec,
+                (int)local.tm_gmtoff, local.tm_isdst);
 
-        configuration_update_command->presencemask |=
-            OGS_NAS_5GS_CONFIGURATION_UPDATE_COMMAND_LOCAL_TIME_ZONE_PRESENT;
-        if (local.tm_gmtoff >= 0) {
-            *local_time_zone = OGS_NAS_TIME_TO_BCD(local.tm_gmtoff / 900);
-        } else {
-            *local_time_zone = OGS_NAS_TIME_TO_BCD((-local.tm_gmtoff) / 900);
-            *local_time_zone |= 0x08;
+            configuration_update_command->presencemask |=
+                OGS_NAS_5GS_CONFIGURATION_UPDATE_COMMAND_LOCAL_TIME_ZONE_PRESENT;
+            if (local.tm_gmtoff >= 0) {
+                *local_time_zone = OGS_NAS_TIME_TO_BCD(local.tm_gmtoff / 900);
+            } else {
+                *local_time_zone = OGS_NAS_TIME_TO_BCD((-local.tm_gmtoff) / 900);
+                *local_time_zone |= 0x08;
+            }
+            ogs_debug("    Timezone:0x%x", *local_time_zone);
+
+            configuration_update_command->presencemask |=
+                OGS_NAS_5GS_CONFIGURATION_UPDATE_COMMAND_UNIVERSAL_TIME_AND_LOCAL_TIME_ZONE_PRESENT;
+            universal_time_and_local_time_zone->year =
+                        OGS_NAS_TIME_TO_BCD(gmt.tm_year % 100);
+            universal_time_and_local_time_zone->mon =
+                        OGS_NAS_TIME_TO_BCD(gmt.tm_mon+1);
+            universal_time_and_local_time_zone->mday =
+                        OGS_NAS_TIME_TO_BCD(gmt.tm_mday);
+            universal_time_and_local_time_zone->hour =
+                        OGS_NAS_TIME_TO_BCD(gmt.tm_hour);
+            universal_time_and_local_time_zone->min =
+                        OGS_NAS_TIME_TO_BCD(gmt.tm_min);
+            universal_time_and_local_time_zone->sec =
+                        OGS_NAS_TIME_TO_BCD(gmt.tm_sec);
+            universal_time_and_local_time_zone->timezone = *local_time_zone;
+
+            configuration_update_command->presencemask |=
+                OGS_NAS_5GS_CONFIGURATION_UPDATE_COMMAND_NETWORK_DAYLIGHT_SAVING_TIME_PRESENT;
+            network_daylight_saving_time->length = 1;
+            if (local.tm_isdst > 0) {
+                network_daylight_saving_time->value = 1;
+            }
         }
-        ogs_debug("    Timezone:0x%x", *local_time_zone);
-
-        configuration_update_command->presencemask |=
-            OGS_NAS_5GS_CONFIGURATION_UPDATE_COMMAND_UNIVERSAL_TIME_AND_LOCAL_TIME_ZONE_PRESENT;
-        universal_time_and_local_time_zone->year =
-                    OGS_NAS_TIME_TO_BCD(gmt.tm_year % 100);
-        universal_time_and_local_time_zone->mon =
-                    OGS_NAS_TIME_TO_BCD(gmt.tm_mon+1);
-        universal_time_and_local_time_zone->mday =
-                    OGS_NAS_TIME_TO_BCD(gmt.tm_mday);
-        universal_time_and_local_time_zone->hour =
-                    OGS_NAS_TIME_TO_BCD(gmt.tm_hour);
-        universal_time_and_local_time_zone->min =
-                    OGS_NAS_TIME_TO_BCD(gmt.tm_min);
-        universal_time_and_local_time_zone->sec =
-                    OGS_NAS_TIME_TO_BCD(gmt.tm_sec);
-        universal_time_and_local_time_zone->timezone = *local_time_zone;
-
-        configuration_update_command->presencemask |=
-            OGS_NAS_5GS_CONFIGURATION_UPDATE_COMMAND_NETWORK_DAYLIGHT_SAVING_TIME_PRESENT;
-        network_daylight_saving_time->length = 1;
     }
 
     if (param->guti) {
