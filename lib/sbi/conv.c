@@ -94,6 +94,13 @@ char *ogs_supi_from_suci(char *suci)
         return NULL;
     }
 
+    /* Clang scan-build SA: Branch condition evaluates to a garbage value: If array "array" is not fully populated
+     * in the while loop below then later access in the following switch-case may check uninitialized values.
+     * Initialize "array" to NULL pointers to fix the issue. */
+    for (i = 0; i < MAX_SUCI_TOKEN; i++) {
+        array[i] = NULL;
+    }
+
     p = tmp;
     i = 0;
     while((array[i++] = strsep(&p, "-"))) {
@@ -717,6 +724,7 @@ uint64_t ogs_sbi_bitrate_from_string(char *str)
     char *unit = NULL;
     uint64_t bitrate = 0;
     ogs_assert(str);
+    uint64_t mul = 1;
 
     unit = strrchr(str, ' ');
     bitrate = atoll(str);
@@ -728,15 +736,25 @@ uint64_t ogs_sbi_bitrate_from_string(char *str)
 
     SWITCH(unit+1)
     CASE("Kbps")
-        return bitrate * 1000;
+        mul = 1000ul;
+        break;
     CASE("Mbps")
-        return bitrate * 1000 * 1000;
+        mul = 1000ul * 1000ul;
+        break;
     CASE("Gbps")
-        return bitrate * 1000 * 1000 * 1000;
+        mul = 1000ul * 1000ul * 1000ul;
+        break;
     CASE("Tbps")
-        return bitrate * 1000 * 1000 * 1000 * 1000;
+        mul = 1000ul * 1000ul * 1000ul * 1000ul;
+        break;
     DEFAULT
     END
+
+    if (bitrate >= (INT64_MAX / mul))
+        bitrate = INT64_MAX;
+    else
+        bitrate *= mul;
+
     return bitrate;
 }
 
@@ -1455,6 +1473,9 @@ OpenAPI_pcc_rule_t *ogs_sbi_build_pcc_rule(
             else if (flow->direction == OGS_FLOW_DOWNLINK_ONLY)
                 FlowInformation->flow_direction =
                     OpenAPI_flow_direction_DOWNLINK;
+            else if (flow->direction == OGS_FLOW_BIDIRECTIONAL)
+                FlowInformation->flow_direction =
+                    OpenAPI_flow_direction_BIDIRECTIONAL;
             else {
                 ogs_fatal("Unsupported direction [%d]", flow->direction);
                 ogs_assert_if_reached();

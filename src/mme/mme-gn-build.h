@@ -30,7 +30,13 @@ extern "C" {
 }
 #endif
 
+ogs_pkbuf_t *mme_gn_build_sgsn_context_request(
+                mme_ue_t *mme_ue, const ogs_nas_p_tmsi_signature_t *ptmsi_sig);
+
 ogs_pkbuf_t *mme_gn_build_sgsn_context_response(
+                mme_ue_t *mme_ue, uint8_t cause);
+
+ogs_pkbuf_t *mme_gn_build_sgsn_context_ack(
                 mme_ue_t *mme_ue, uint8_t cause);
 
 ogs_pkbuf_t *mme_gn_build_ran_information_relay(

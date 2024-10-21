@@ -145,6 +145,13 @@ ED4(uint8_t spare:5;,
     uint8_t cs:1;)
 } __attribute__ ((packed)) ogs_gtp1_cause_t;
 
+/* 7.7.15 Tunnel Endpoint Identifier Data II */
+typedef struct ogs_gtp1_teidII_s {
+ED2(uint8_t spare:4;, /* Shall be set to 0 */
+    uint8_t nsapi:4;)
+    uint32_t teid;
+} __attribute__ ((packed)) ogs_gtp1_teidII_t;
+
 
 /* TS 29.060 16.0.0 Table 7.7.50.1 RAT Type values */
 #define OGS_GTP1_RAT_TYPE_RESERVED                               0
@@ -210,6 +217,18 @@ typedef struct ogs_gtp1_gsn_addr_s {
 #define OGS_GTP1_APN_RESTRICTION_PUBLIC_2   2
 #define OGS_GTP1_APN_RESTRICTION_PRIVATE_1  3
 #define OGS_GTP1_APN_RESTRICTION_PRIVATE_2  4
+
+/* Table 10.5.156/3GPP TS 24.008 Quality of service */
+/* Delivery order, octet 6 (see also 3GPP TS 23.107) */
+#define OGS_GTP1_DELIVERY_ORDER_SUBSCRIBED 0
+#define OGS_GTP1_DELIVERY_ORDER_YES 1
+#define OGS_GTP1_DELIVERY_ORDER_NO 2
+
+/* Delivery of erroneous SDUs, octet 6 (see also 3GPP TS 23.107) */
+#define OGS_GTP1_DELIVERY_ERR_SDU_SUBSCRIBED 0
+#define OGS_GTP1_DELIVERY_ERR_SDU_NO_DETECT 1
+#define OGS_GTP1_DELIVERY_ERR_SDU_YES 2
+#define OGS_GTP1_DELIVERY_ERR_SDU_NO 3
 
 /* TS 29.060 7.7.34 Quality of Service (QoS) Profile */
 #define OGS_GTP1_QOS_PROFILE_MAX_LEN 255
@@ -359,6 +378,8 @@ typedef struct ogs_gtp1_mm_context_decoded_s {
     uint8_t nrsrna;
 } ogs_gtp1_mm_context_decoded_t;
 
+int ogs_gtp1_parse_mm_context(
+    ogs_gtp1_mm_context_decoded_t *decoded, const ogs_tlv_octet_t *octet);
 int ogs_gtp1_build_mm_context(ogs_gtp1_tlv_mm_context_t *octet,
     const ogs_gtp1_mm_context_decoded_t *decoded, uint8_t *data, int data_len);
 
@@ -405,6 +426,8 @@ typedef struct ogs_gtp1_pdp_context_decoded_s {
     uint16_t trans_id:12;
 } ogs_gtp1_pdp_context_decoded_t;
 
+int ogs_gtp1_parse_pdp_context(
+    ogs_gtp1_pdp_context_decoded_t *decoded, const ogs_tlv_octet_t *octet);
 int ogs_gtp1_build_pdp_context(ogs_gtp1_tlv_pdp_context_t *octet,
     const ogs_gtp1_pdp_context_decoded_t *decoded, uint8_t *data, int data_len);
 

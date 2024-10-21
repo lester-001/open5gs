@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2023 by Sukchan Lee <acetcom@gmail.com>
+ * Copyright (C) 2019-2024 by Sukchan Lee <acetcom@gmail.com>
  *
  * This file is part of Open5GS.
  *
@@ -28,10 +28,10 @@
 extern "C" {
 #endif
 
-#define OGS_PFCP_DEFAULT_PDR_PRECEDENCE 255
-#define OGS_PFCP_INDIRECT_PDR_PRECEDENCE 1
-#define OGS_PFCP_UP2CP_PDR_PRECEDENCE 1
-#define OGS_PFCP_CP2UP_PDR_PRECEDENCE 1000
+#define OGS_PFCP_DEFAULT_PDR_PRECEDENCE 65535
+#define OGS_PFCP_INDIRECT_PDR_PRECEDENCE 4096
+#define OGS_PFCP_UP2CP_PDR_PRECEDENCE 255
+#define OGS_PFCP_CP2UP_PDR_PRECEDENCE 255
 
 #define OGS_PFCP_DEFAULT_CHOOSE_ID 5
 #define OGS_PFCP_INDIRECT_DATA_FORWARDING_CHOOSE_ID 10
@@ -156,6 +156,9 @@ typedef struct ogs_pfcp_pdr_s {
     ogs_pfcp_precedence_t   precedence;
     ogs_pfcp_interface_t    src_if;
 
+    bool src_if_type_presence;
+    ogs_pfcp_3gpp_interface_type_t src_if_type;
+
     union {
         char *apn;
         char *dnn;
@@ -186,7 +189,21 @@ typedef struct ogs_pfcp_pdr_s {
     ogs_pfcp_qer_t          *qer;
 
     int                     num_of_flow;
-    char                    *flow_description[OGS_MAX_NUM_OF_FLOW_IN_PDR];
+    struct {
+        union {
+            struct {
+    ED6(uint8_t     spare1:3;,
+        uint8_t     bid:1;,
+        uint8_t     fl:1;,
+        uint8_t     spi:1;,
+        uint8_t     ttc:1;,
+        uint8_t     fd:1;)
+            };
+            uint8_t flags;
+        };
+        char *description;
+        uint32_t sdf_filter_id;
+    } flow[OGS_MAX_NUM_OF_FLOW_IN_PDR];;
 
     ogs_list_t              rule_list;      /* Rule List */
 
@@ -224,6 +241,10 @@ typedef struct ogs_pfcp_far_s {
     ogs_pfcp_far_id_t       id;
     ogs_pfcp_apply_action_t apply_action;
     ogs_pfcp_interface_t    dst_if;
+
+    bool dst_if_type_presence;
+    ogs_pfcp_3gpp_interface_type_t dst_if_type;
+
     ogs_pfcp_outer_header_creation_t outer_header_creation;
     int                     outer_header_creation_len;
 
@@ -476,7 +497,7 @@ ogs_pfcp_dev_t *ogs_pfcp_dev_find_by_ifname(const char *ifname);
 
 ogs_pfcp_subnet_t *ogs_pfcp_subnet_add(
         const char *ipstr, const char *mask_or_numbits,
-        const char *dnn, const char *ifname);
+        const char *gateway, const char *dnn, const char *ifname);
 ogs_pfcp_subnet_t *ogs_pfcp_subnet_next(ogs_pfcp_subnet_t *subnet);
 void ogs_pfcp_subnet_remove(ogs_pfcp_subnet_t *subnet);
 void ogs_pfcp_subnet_remove_all(void);

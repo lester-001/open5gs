@@ -29,10 +29,22 @@
 
 static void pfcp_sess_timeout(ogs_pfcp_xact_t *xact, void *data)
 {
+    smf_sess_t *sess = NULL;
+    ogs_pool_id_t sess_id = OGS_INVALID_POOL_ID;
     uint8_t type;
 
     ogs_assert(xact);
     type = xact->seq[0].type;
+
+    ogs_assert(data);
+    sess_id = OGS_POINTER_TO_UINT(data);
+    ogs_assert(sess_id >= OGS_MIN_POOL_ID && sess_id <= OGS_MAX_POOL_ID);
+
+    sess = smf_sess_find_by_id(sess_id);
+    if (!sess) {
+        ogs_error("Session has already been removed [%d]", type);
+        return;
+    }
 
     switch (type) {
     case OGS_PFCP_SESSION_ESTABLISHMENT_REQUEST_TYPE:
@@ -48,6 +60,14 @@ static void pfcp_sess_timeout(ogs_pfcp_xact_t *xact, void *data)
         ogs_error("Not implemented [type:%d]", type);
         break;
     }
+}
+
+static ogs_inline uint32_t get_sender_f_teid(
+        smf_sess_t *sess, ogs_gtp2_sender_f_teid_t *sender_f_teid)
+{
+    return sess ? sess->sgw_s5c_teid :
+                sender_f_teid && sender_f_teid->teid_presence == true ?
+                    sender_f_teid->teid : 0;
 }
 
 void smf_s5c_handle_echo_request(
@@ -170,7 +190,7 @@ uint8_t smf_s5c_handle_create_session_request(
     if (cause_value != OGS_GTP2_CAUSE_REQUEST_ACCEPTED)
         return cause_value;
 
-    smf_ue = sess->smf_ue;
+    smf_ue = smf_ue_find_by_id(sess->smf_ue_id);
     ogs_assert(smf_ue);
 
     /* Set MSISDN: */
@@ -199,7 +219,15 @@ uint8_t smf_s5c_handle_create_session_request(
     if (sess->gtp_rat_type == OGS_GTP2_RAT_TYPE_EUTRAN) {
         /* User Location Inforation is mandatory only for E-UTRAN */
         ogs_assert(req->user_location_information.presence);
-        ogs_gtp2_parse_uli(&uli, &req->user_location_information);
+        if (req->user_location_information.presence == 0) {
+            ogs_error("No User Location Information(ULI)");
+            return OGS_GTP2_CAUSE_MANDATORY_IE_MISSING;
+        }
+        decoded = ogs_gtp2_parse_uli(&uli, &req->user_location_information);
+        if (req->user_location_information.len != decoded) {
+            ogs_error("Invalid User Location Information(ULI)");
+            return OGS_GTP2_CAUSE_MANDATORY_IE_INCORRECT;
+        }
         memcpy(&sess->e_tai, &uli.tai, sizeof(sess->e_tai));
         memcpy(&sess->e_cgi, &uli.e_cgi, sizeof(sess->e_cgi));
 
@@ -247,7 +275,7 @@ uint8_t smf_s5c_handle_create_session_request(
 
     /* Initially Set Session Type from UE */
     sess->session.session_type = sess->ue_session_type;
-    rv = ogs_gtp2_paa_to_ip(paa, &sess->session.ue_ip);
+    rv = ogs_paa_to_ip(paa, &sess->session.ue_ip);
     ogs_assert(rv == OGS_OK);
 
     /* Set UE IP Address */
@@ -281,7 +309,8 @@ uint8_t smf_s5c_handle_create_session_request(
     /* Control Plane(DL) : SGW-S5C */
     sgw_s5c_teid = req->sender_f_teid_for_control_plane.data;
     ogs_assert(sgw_s5c_teid);
-    sess->sgw_s5c_teid = be32toh(sgw_s5c_teid->teid);
+    /* sess->sgw_s5c_teid has already been updated in SMF-SM */
+    ogs_assert(sess->sgw_s5c_teid == be32toh(sgw_s5c_teid->teid));
     rv = ogs_gtp2_f_teid_to_ip(sgw_s5c_teid, &sess->sgw_s5c_ip);
     ogs_assert(rv == OGS_OK);
 
@@ -378,6 +407,12 @@ uint8_t smf_s5c_handle_create_session_request(
                 &req->protocol_configuration_options);
     }
 
+    /* APCO */
+    if (req->additional_protocol_configuration_options.presence) {
+        OGS_TLV_STORE_DATA(&sess->gtp.ue_apco,
+                &req->additional_protocol_configuration_options);
+    }
+
     /* Set User Location Information */
     if (req->user_location_information.presence) {
         OGS_TLV_STORE_DATA(&sess->gtp.user_location_information,
@@ -395,16 +430,15 @@ uint8_t smf_s5c_handle_create_session_request(
 
     /* Set MSISDN */
     if (req->msisdn.presence && req->msisdn.len && req->msisdn.data) {
-        smf_ue->msisdn_len = req->msisdn.len;
-        memcpy(smf_ue->msisdn, req->msisdn.data,
-                ogs_min(smf_ue->msisdn_len, OGS_MAX_MSISDN_LEN));
+        smf_ue->msisdn_len = ogs_min(req->msisdn.len, OGS_MAX_MSISDN_LEN);
+        memcpy(smf_ue->msisdn, req->msisdn.data, smf_ue->msisdn_len);
         ogs_buffer_to_bcd(smf_ue->msisdn,
                 smf_ue->msisdn_len, smf_ue->msisdn_bcd);
     }
 
     /* Set IMEI(SV) */
     if (req->me_identity.presence && req->me_identity.len > 0) {
-        smf_ue->imeisv_len = req->me_identity.len;
+        smf_ue->imeisv_len = ogs_min(req->me_identity.len, OGS_MAX_IMEISV_LEN);
         memcpy(smf_ue->imeisv,
             (uint8_t*)req->me_identity.data, smf_ue->imeisv_len);
         ogs_buffer_to_bcd(
@@ -452,6 +486,8 @@ uint8_t smf_s5c_handle_delete_session_request(
         OGS_TLV_CLEAR_DATA(&sess->gtp.ue_pco);
     }
 
+    /* APCO not present in Session deletion procedure, hence no need to clear it here. */
+
     if (req->extended_protocol_configuration_options.presence) {
         OGS_TLV_STORE_DATA(&sess->gtp.ue_epco,
                 &req->extended_protocol_configuration_options);
@@ -471,7 +507,8 @@ uint8_t smf_s5c_handle_delete_session_request(
 
 void smf_s5c_handle_modify_bearer_request(
         smf_sess_t *sess, ogs_gtp_xact_t *gtp_xact,
-        ogs_pkbuf_t *gtpbuf, ogs_gtp2_modify_bearer_request_t *req)
+        ogs_pkbuf_t *gtpbuf, ogs_gtp2_modify_bearer_request_t *req,
+        ogs_gtp2_sender_f_teid_t *sender_f_teid)
 {
     int rv, i;
     uint8_t cause_value = 0;
@@ -484,6 +521,7 @@ void smf_s5c_handle_modify_bearer_request(
 
     ogs_assert(gtp_xact);
     ogs_assert(req);
+    ogs_assert(sender_f_teid);
 
     /************************
      * Check Session Context
@@ -496,7 +534,8 @@ void smf_s5c_handle_modify_bearer_request(
     }
 
     if (cause_value != OGS_GTP2_CAUSE_REQUEST_ACCEPTED) {
-        ogs_gtp2_send_error_message(gtp_xact, sess ? sess->sgw_s5c_teid : 0,
+        ogs_gtp2_send_error_message(
+                gtp_xact, get_sender_f_teid(sess, sender_f_teid),
                 OGS_GTP2_MODIFY_BEARER_RESPONSE_TYPE, cause_value);
         return;
     }
@@ -505,7 +544,7 @@ void smf_s5c_handle_modify_bearer_request(
      * Check ALL Context
      ********************/
     ogs_assert(sess);
-    smf_ue = sess->smf_ue;
+    smf_ue = smf_ue_find_by_id(sess->smf_ue_id);
     ogs_assert(smf_ue);
 
     /* Control Plane(DL) : SGW-S5C */
@@ -603,7 +642,7 @@ void smf_s5c_handle_modify_bearer_request(
         ogs_assert(pfcp_xact);
 
         pfcp_xact->epc = true; /* EPC PFCP transaction */
-        pfcp_xact->assoc_xact = gtp_xact;
+        pfcp_xact->assoc_xact_id = gtp_xact->id;
         pfcp_xact->modify_flags =
             flags|OGS_PFCP_MODIFY_DL_ONLY|OGS_PFCP_MODIFY_ACTIVATE;
 
@@ -647,6 +686,7 @@ void smf_s5c_handle_create_bearer_response(
     ogs_gtp2_cause_t *cause = NULL;
     ogs_gtp2_f_teid_t *sgw_s5u_teid = NULL, *pgw_s5u_teid = NULL;
     smf_bearer_t *bearer = NULL;
+    ogs_pool_id_t bearer_id = OGS_INVALID_POOL_ID;
     ogs_pfcp_far_t *dl_far = NULL;
 
     ogs_assert(sess);
@@ -658,11 +698,21 @@ void smf_s5c_handle_create_bearer_response(
      * Check Transaction
      ********************/
     ogs_assert(xact);
-    bearer = xact->data;
-    ogs_assert(bearer);
+
+    bearer_id = OGS_POINTER_TO_UINT(xact->data);
+    ogs_assert(bearer_id >= OGS_MIN_POOL_ID && bearer_id <= OGS_MAX_POOL_ID);
 
     rv = ogs_gtp_xact_commit(xact);
     ogs_expect(rv == OGS_OK);
+
+    /********************
+     * Check ALL Context
+     ********************/
+    bearer = smf_bearer_find_by_id(bearer_id);
+    if (!bearer) {
+        ogs_error("Bearer has already been removed");
+        return;
+    }
 
     /************************
      * Check Session Context
@@ -672,7 +722,7 @@ void smf_s5c_handle_create_bearer_response(
     if (cause_value != OGS_GTP2_CAUSE_REQUEST_ACCEPTED) {
         ogs_assert(OGS_OK ==
             smf_epc_pfcp_send_one_bearer_modification_request(
-                bearer, NULL, OGS_PFCP_MODIFY_REMOVE,
+                bearer, OGS_INVALID_POOL_ID, OGS_PFCP_MODIFY_REMOVE,
                 OGS_NAS_PROCEDURE_TRANSACTION_IDENTITY_UNASSIGNED,
                 OGS_GTP2_CAUSE_UNDEFINED_VALUE));
         return;
@@ -729,7 +779,7 @@ void smf_s5c_handle_create_bearer_response(
     if (cause_value != OGS_GTP2_CAUSE_REQUEST_ACCEPTED) {
         ogs_assert(OGS_OK ==
             smf_epc_pfcp_send_one_bearer_modification_request(
-                bearer, NULL, OGS_PFCP_MODIFY_REMOVE,
+                bearer, OGS_INVALID_POOL_ID, OGS_PFCP_MODIFY_REMOVE,
                 OGS_NAS_PROCEDURE_TRANSACTION_IDENTITY_UNASSIGNED,
                 OGS_GTP2_CAUSE_UNDEFINED_VALUE));
         return;
@@ -747,7 +797,7 @@ void smf_s5c_handle_create_bearer_response(
         ogs_error("GTP Bearer Cause [VALUE:%d]", cause_value);
         ogs_assert(OGS_OK ==
             smf_epc_pfcp_send_one_bearer_modification_request(
-                bearer, NULL, OGS_PFCP_MODIFY_REMOVE,
+                bearer, OGS_INVALID_POOL_ID, OGS_PFCP_MODIFY_REMOVE,
                 OGS_NAS_PROCEDURE_TRANSACTION_IDENTITY_UNASSIGNED,
                 OGS_GTP2_CAUSE_UNDEFINED_VALUE));
         return;
@@ -760,7 +810,7 @@ void smf_s5c_handle_create_bearer_response(
         ogs_error("GTP Cause [Value:%d]", cause_value);
         ogs_assert(OGS_OK ==
             smf_epc_pfcp_send_one_bearer_modification_request(
-                bearer, NULL, OGS_PFCP_MODIFY_REMOVE,
+                bearer, OGS_INVALID_POOL_ID, OGS_PFCP_MODIFY_REMOVE,
                 OGS_NAS_PROCEDURE_TRANSACTION_IDENTITY_UNASSIGNED,
                 OGS_GTP2_CAUSE_UNDEFINED_VALUE));
         return;
@@ -807,7 +857,7 @@ void smf_s5c_handle_create_bearer_response(
 
     ogs_assert(OGS_OK ==
         smf_epc_pfcp_send_one_bearer_modification_request(
-            bearer, NULL, OGS_PFCP_MODIFY_ACTIVATE,
+            bearer, OGS_INVALID_POOL_ID, OGS_PFCP_MODIFY_ACTIVATE,
             OGS_NAS_PROCEDURE_TRANSACTION_IDENTITY_UNASSIGNED,
             OGS_GTP2_CAUSE_UNDEFINED_VALUE));
 }
@@ -822,6 +872,7 @@ void smf_s5c_handle_update_bearer_response(
     uint64_t gtp_flags = 0;
     uint64_t pfcp_flags = 0;
     smf_bearer_t *bearer = NULL;
+    ogs_pool_id_t bearer_id = OGS_INVALID_POOL_ID;
 
     ogs_assert(sess);
     ogs_assert(rsp);
@@ -834,8 +885,9 @@ void smf_s5c_handle_update_bearer_response(
     ogs_assert(xact);
     gtp_flags = xact->update_flags;
     ogs_assert(gtp_flags);
-    bearer = xact->data;
-    ogs_assert(bearer);
+
+    bearer_id = OGS_POINTER_TO_UINT(xact->data);
+    ogs_assert(bearer_id >= OGS_MIN_POOL_ID && bearer_id <= OGS_MAX_POOL_ID);
 
     rv = ogs_gtp_xact_commit(xact);
     ogs_expect(rv == OGS_OK);
@@ -891,8 +943,11 @@ void smf_s5c_handle_update_bearer_response(
     /********************
      * Check ALL Context
      ********************/
-    ogs_assert(sess);
-    ogs_assert(bearer);
+    bearer = smf_bearer_find_by_id(bearer_id);
+    if (!bearer) {
+        ogs_error("Bearer has already been removed");
+        return;
+    }
 
     ogs_debug("    SGW_S5C_TEID[0x%x] SMF_N4_TEID[0x%x]",
             sess->sgw_s5c_teid, sess->smf_n4_teid);
@@ -913,7 +968,7 @@ void smf_s5c_handle_update_bearer_response(
     if (pfcp_flags)
         ogs_assert(OGS_OK ==
             smf_epc_pfcp_send_one_bearer_modification_request(
-                bearer, NULL, pfcp_flags,
+                bearer, OGS_INVALID_POOL_ID, pfcp_flags,
                 OGS_NAS_PROCEDURE_TRANSACTION_IDENTITY_UNASSIGNED,
                 OGS_GTP2_CAUSE_UNDEFINED_VALUE));
 }
@@ -926,6 +981,7 @@ bool smf_s5c_handle_delete_bearer_response(
     int rv;
     uint8_t cause_value;
     smf_bearer_t *bearer = NULL;
+    ogs_pool_id_t bearer_id = OGS_INVALID_POOL_ID;
 
     ogs_assert(sess);
     ogs_assert(rsp);
@@ -936,16 +992,19 @@ bool smf_s5c_handle_delete_bearer_response(
      * Check Transaction
      ********************/
     ogs_assert(xact);
-    bearer = xact->data;
-    ogs_assert(bearer);
+
+    bearer_id = OGS_POINTER_TO_UINT(xact->data);
+    ogs_assert(bearer_id >= OGS_MIN_POOL_ID && bearer_id <= OGS_MAX_POOL_ID);
 
     rv = ogs_gtp_xact_commit(xact);
     ogs_expect(rv == OGS_OK);
 
-    /********************
-     * Check ALL Context
-     ********************/
-    ogs_assert(bearer);
+    bearer = smf_bearer_find_by_id(bearer_id);
+    if (!bearer) {
+        ogs_error("Bearer has already been removed");
+        /* Release entire session: */
+        return true;
+    }
 
     if (rsp->linked_eps_bearer_id.presence) {
         /*
@@ -1024,7 +1083,7 @@ bool smf_s5c_handle_delete_bearer_response(
 
     ogs_assert(OGS_OK ==
         smf_epc_pfcp_send_one_bearer_modification_request(
-            bearer, NULL, OGS_PFCP_MODIFY_REMOVE,
+            bearer, OGS_INVALID_POOL_ID, OGS_PFCP_MODIFY_REMOVE,
             OGS_NAS_PROCEDURE_TRANSACTION_IDENTITY_UNASSIGNED,
             OGS_GTP2_CAUSE_UNDEFINED_VALUE));
     return false;
@@ -1124,7 +1183,8 @@ static int reconfigure_packet_filter(smf_pf_t *pf, ogs_gtp2_tft_t *tft, int i)
 
 void smf_s5c_handle_bearer_resource_command(
         smf_sess_t *sess, ogs_gtp_xact_t *xact,
-        ogs_gtp2_bearer_resource_command_t *cmd)
+        ogs_gtp2_bearer_resource_command_t *cmd,
+        ogs_gtp2_sender_f_teid_t *sender_f_teid)
 {
     int rv;
     uint8_t cause_value = 0;
@@ -1145,6 +1205,7 @@ void smf_s5c_handle_bearer_resource_command(
 
     ogs_assert(xact);
     ogs_assert(cmd);
+    ogs_assert(sender_f_teid);
 
     ogs_debug("Bearer Resource Command");
 
@@ -1178,7 +1239,8 @@ void smf_s5c_handle_bearer_resource_command(
     }
 
     if (cause_value != OGS_GTP2_CAUSE_REQUEST_ACCEPTED) {
-        ogs_gtp2_send_error_message(xact, sess ? sess->sgw_s5c_teid : 0,
+        ogs_gtp2_send_error_message(
+                xact, get_sender_f_teid(sess, sender_f_teid),
                 OGS_GTP2_BEARER_RESOURCE_FAILURE_INDICATION_TYPE, cause_value);
         return;
     }
@@ -1203,7 +1265,8 @@ void smf_s5c_handle_bearer_resource_command(
     }
 
     if (cause_value != OGS_GTP2_CAUSE_REQUEST_ACCEPTED) {
-        ogs_gtp2_send_error_message(xact, sess ? sess->sgw_s5c_teid : 0,
+        ogs_gtp2_send_error_message(
+                xact, get_sender_f_teid(sess, sender_f_teid),
                 OGS_GTP2_BEARER_RESOURCE_FAILURE_INDICATION_TYPE, cause_value);
         return;
     }
@@ -1218,6 +1281,18 @@ void smf_s5c_handle_bearer_resource_command(
             sess->sgw_s5c_teid, sess->smf_n4_teid);
 
     decoded = ogs_gtp2_parse_tft(&tft, &cmd->traffic_aggregate_description);
+    if (cmd->traffic_aggregate_description.len != decoded) {
+        ogs_error("ogs_gtp2_parse_tft() failed");
+        ogs_log_hexdump(OGS_LOG_ERROR,
+            cmd->traffic_aggregate_description.data,
+            cmd->traffic_aggregate_description.len);
+        ogs_gtp2_send_error_message(
+                xact, get_sender_f_teid(sess, sender_f_teid),
+                OGS_GTP2_BEARER_RESOURCE_FAILURE_INDICATION_TYPE,
+                OGS_GTP2_CAUSE_INVALID_MESSAGE_FORMAT);
+        return;
+    }
+
     ogs_assert(cmd->traffic_aggregate_description.len == decoded);
 
     if (tft.code == OGS_GTP2_TFT_CODE_NO_TFT_OPERATION) {
@@ -1229,11 +1304,11 @@ void smf_s5c_handle_bearer_resource_command(
             OGS_GTP2_TFT_CODE_REPLACE_PACKET_FILTERS_IN_EXISTING) {
         for (i = 0; i < tft.num_of_packet_filter &&
                     i < OGS_MAX_NUM_OF_FLOW_IN_GTP; i++) {
-            pf = smf_pf_find_by_id(bearer, tft.pf[i].identifier+1);
+            pf = smf_pf_find_by_identifier(bearer, tft.pf[i].identifier+1);
             if (pf) {
                 if (reconfigure_packet_filter(pf, &tft, i) < 0) {
                     ogs_gtp2_send_error_message(
-                        xact, sess ? sess->sgw_s5c_teid : 0,
+                        xact, get_sender_f_teid(sess, sender_f_teid),
                         OGS_GTP2_BEARER_RESOURCE_FAILURE_INDICATION_TYPE,
                         OGS_GTP2_CAUSE_SEMANTIC_ERRORS_IN_PACKET_FILTER);
                     return;
@@ -1242,7 +1317,7 @@ void smf_s5c_handle_bearer_resource_command(
  * Refer to lib/ipfw/ogs-ipfw.h
  * Issue #338
  *
- * <DOWNLINK>
+ * <DOWNLINK/BI-DIRECTIONAL>
  * TFT : Local <UE_IP> <UE_PORT> REMOTE <P-CSCF_RTP_IP> <P-CSCF_RTP_PORT>
  * -->
  * RULE : Source <P-CSCF_RTP_IP> <P-CSCF_RTP_PORT> Destination <UE_IP> <UE_PORT>
@@ -1260,7 +1335,7 @@ void smf_s5c_handle_bearer_resource_command(
 /*
  * Issue #338
  *
- * <DOWNLINK>
+ * <DOWNLINK/BI-DIRECTIONAL>
  * RULE : Source <P-CSCF_RTP_IP> <P-CSCF_RTP_PORT> Destination <UE_IP> <UE_PORT>
  * -->
  * GX : permit out from <P-CSCF_RTP_IP> <P-CSCF_RTP_PORT> to <UE_IP> <UE_PORT>
@@ -1295,14 +1370,14 @@ void smf_s5c_handle_bearer_resource_command(
 
         for (i = 0; i < tft.num_of_packet_filter &&
                     i < OGS_MAX_NUM_OF_FLOW_IN_GTP; i++) {
-            pf = smf_pf_find_by_id(bearer, tft.pf[i].identifier+1);
+            pf = smf_pf_find_by_identifier(bearer, tft.pf[i].identifier+1);
             if (!pf)
                 pf = smf_pf_add(bearer);
             ogs_assert(pf);
 
             if (reconfigure_packet_filter(pf, &tft, i) < 0) {
                 ogs_gtp2_send_error_message(
-                    xact, sess ? sess->sgw_s5c_teid : 0,
+                    xact, get_sender_f_teid(sess, sender_f_teid),
                     OGS_GTP2_BEARER_RESOURCE_FAILURE_INDICATION_TYPE,
                     OGS_GTP2_CAUSE_SEMANTIC_ERRORS_IN_PACKET_FILTER);
                 return;
@@ -1311,7 +1386,7 @@ void smf_s5c_handle_bearer_resource_command(
  * Refer to lib/ipfw/ogs-ipfw.h
  * Issue #338
  *
- * <DOWNLINK>
+ * <DOWNLINK/BI-DIRECTIONAL>
  * TFT : Local <UE_IP> <UE_PORT> REMOTE <P-CSCF_RTP_IP> <P-CSCF_RTP_PORT>
  * -->
  * RULE : Source <P-CSCF_RTP_IP> <P-CSCF_RTP_PORT> Destination <UE_IP> <UE_PORT>
@@ -1330,7 +1405,7 @@ void smf_s5c_handle_bearer_resource_command(
 /*
  * Issue #338
  *
- * <DOWNLINK>
+ * <DOWNLINK/BI-DIRECTIONAL>
  * RULE : Source <P-CSCF_RTP_IP> <P-CSCF_RTP_PORT> Destination <UE_IP> <UE_PORT>
  * -->
  * GX : permit out from <P-CSCF_RTP_IP> <P-CSCF_RTP_PORT> to <UE_IP> <UE_PORT>
@@ -1360,7 +1435,7 @@ void smf_s5c_handle_bearer_resource_command(
             OGS_GTP2_TFT_CODE_DELETE_PACKET_FILTERS_FROM_EXISTING) {
         for (i = 0; i < tft.num_of_packet_filter &&
                     i <= OGS_MAX_NUM_OF_FLOW_IN_GTP; i++) {
-            pf = smf_pf_find_by_id(bearer, tft.pf[i].identifier+1);
+            pf = smf_pf_find_by_identifier(bearer, tft.pf[i].identifier+1);
             if (pf)
                 smf_pf_remove(pf);
         }
@@ -1388,7 +1463,8 @@ void smf_s5c_handle_bearer_resource_command(
 
     if (tft_update == 0 && tft_delete == 0 && qos_update == 0) {
         /* No modification */
-        ogs_gtp2_send_error_message(xact, sess ? sess->sgw_s5c_teid : 0,
+        ogs_gtp2_send_error_message(
+                xact, get_sender_f_teid(sess, sender_f_teid),
                 OGS_GTP2_BEARER_RESOURCE_FAILURE_INDICATION_TYPE,
                 OGS_GTP2_CAUSE_SERVICE_NOT_SUPPORTED);
         return;
@@ -1406,7 +1482,7 @@ void smf_s5c_handle_bearer_resource_command(
          */
         ogs_assert(OGS_OK ==
             smf_epc_pfcp_send_one_bearer_modification_request(
-                bearer, xact,
+                bearer, xact->id,
                 OGS_PFCP_MODIFY_DL_ONLY|OGS_PFCP_MODIFY_DEACTIVATE,
                 cmd->procedure_transaction_id.u8,
                 OGS_GTP2_CAUSE_UNDEFINED_VALUE));
@@ -1451,7 +1527,7 @@ void smf_s5c_handle_bearer_resource_command(
          *
          * To do this, I saved Bearer Context in Transaction Context.
          */
-        xact->data = bearer;
+        xact->data = OGS_UINT_TO_POINTER(bearer->id);
 
         rv = ogs_gtp_xact_commit(xact);
         ogs_expect(rv == OGS_OK);

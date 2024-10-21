@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 by Sukchan Lee <acetcom@gmail.com>
+ * Copyright (C) 2019-2024 by Sukchan Lee <acetcom@gmail.com>
  *
  * This file is part of Open5GS.
  *
@@ -39,7 +39,6 @@ static uint8_t mme_ue_session_from_slice_data(mme_ue_t *mme_ue,
 uint8_t mme_s6a_handle_aia(
         mme_ue_t *mme_ue, ogs_diam_s6a_message_t *s6a_message)
 {
-    int r;
     ogs_diam_s6a_aia_message_t *aia_message = NULL;
     ogs_diam_e_utran_vector_t *e_utran_vector = NULL;
 
@@ -66,10 +65,6 @@ uint8_t mme_s6a_handle_aia(
 
     if (mme_ue->nas_eps.ksi == OGS_NAS_KSI_NO_KEY_IS_AVAILABLE)
         mme_ue->nas_eps.ksi = 0;
-
-    r = nas_eps_send_authentication_request(mme_ue);
-    ogs_expect(r == OGS_OK);
-    ogs_assert(r != OGS_ERROR);
 
     return OGS_NAS_EMM_CAUSE_REQUEST_ACCEPTED;
 }
@@ -118,6 +113,16 @@ uint8_t mme_s6a_handle_ula(
             return OGS_NAS_EMM_CAUSE_PROTOCOL_ERROR_UNSPECIFIED;
         }
     } else if (mme_ue->nas_eps.type == MME_EPS_TYPE_TAU_REQUEST) {
+        if (!SESSION_CONTEXT_IS_AVAILABLE(mme_ue)) {
+            ogs_warn("No PDN Connection : UE[%s]", mme_ue->imsi_bcd);
+            return OGS_NAS_EMM_CAUSE_UE_IDENTITY_CANNOT_BE_DERIVED_BY_THE_NETWORK;
+        }
+
+        if (!ACTIVE_EPS_BEARERS_IS_AVAIABLE(mme_ue)) {
+            ogs_warn("No active EPS bearers : IMSI[%s]", mme_ue->imsi_bcd);
+            return OGS_NAS_EMM_CAUSE_NO_EPS_BEARER_CONTEXT_ACTIVATED;
+        }
+
         r = nas_eps_send_tau_accept(mme_ue,
                 S1AP_ProcedureCode_id_InitialContextSetup);
         ogs_expect(r == OGS_OK);
@@ -208,7 +213,6 @@ void mme_s6a_handle_clr(mme_ue_t *mme_ue, ogs_diam_s6a_message_t *s6a_message)
     clr_message = &s6a_message->clr_message;
     ogs_assert(clr_message);
 
-    mme_ue = mme_ue_cycle(mme_ue);
     if (!mme_ue) {
         ogs_warn("UE(mme-ue) context has already been removed");
         return;
@@ -274,7 +278,11 @@ void mme_s6a_handle_clr(mme_ue_t *mme_ue, ogs_diam_s6a_message_t *s6a_message)
             if (MME_P_TMSI_IS_AVAILABLE(mme_ue)) {
                 ogs_assert(OGS_OK == sgsap_send_detach_indication(mme_ue));
             } else {
-                mme_send_delete_session_or_detach(mme_ue);
+                enb_ue_t *enb_ue = enb_ue_find_by_id(mme_ue->enb_ue_id);
+                if (enb_ue)
+                    mme_send_delete_session_or_detach(enb_ue, mme_ue);
+                else
+                    ogs_error("ENB-S1 Context has already been removed");
             }
         }
         break;
@@ -299,7 +307,11 @@ void mme_s6a_handle_clr(mme_ue_t *mme_ue, ogs_diam_s6a_message_t *s6a_message)
         if (MME_P_TMSI_IS_AVAILABLE(mme_ue)) {
             ogs_assert(OGS_OK == sgsap_send_detach_indication(mme_ue));
         } else {
-            mme_send_delete_session_or_detach(mme_ue);
+            enb_ue_t *enb_ue = enb_ue_find_by_id(mme_ue->enb_ue_id);
+            if (enb_ue)
+                mme_send_delete_session_or_detach(enb_ue, mme_ue);
+            else
+                ogs_error("ENB-S1 Context has already been removed");
         }
         break;
     default:
@@ -342,8 +354,8 @@ static uint8_t mme_ue_session_from_slice_data(mme_ue_t *mme_ue,
                 ogs_free(mme_ue->session[i].name);
             break;
         }
-        memcpy(&mme_ue->session[i].paa, &slice_data->session[i].paa,
-                sizeof(mme_ue->session[i].paa));
+        memcpy(&mme_ue->session[i].ue_ip, &slice_data->session[i].ue_ip,
+                sizeof(mme_ue->session[i].ue_ip));
 
         memcpy(&mme_ue->session[i].qos, &slice_data->session[i].qos,
                 sizeof(mme_ue->session[i].qos));

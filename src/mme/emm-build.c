@@ -345,9 +345,6 @@ ogs_pkbuf_t *emm_build_security_mode_command(mme_ue_t *mme_ue)
     message.emm.h.protocol_discriminator = OGS_NAS_PROTOCOL_DISCRIMINATOR_EMM;
     message.emm.h.message_type = OGS_NAS_EPS_SECURITY_MODE_COMMAND;
 
-    mme_ue->selected_int_algorithm = mme_selected_int_algorithm(mme_ue);
-    mme_ue->selected_enc_algorithm = mme_selected_enc_algorithm(mme_ue);
-
     selected_nas_security_algorithms->type_of_integrity_protection_algorithm =
         mme_ue->selected_int_algorithm;
     selected_nas_security_algorithms->type_of_ciphering_algorithm =
@@ -398,6 +395,18 @@ ogs_pkbuf_t *emm_build_security_mode_command(mme_ue_t *mme_ue)
     imeisv_request->type = OGS_NAS_IMEISV_TYPE;
     imeisv_request->value = OGS_NAS_IMEISV_REQUESTED;
 
+    if (mme_ue->nonceue) {
+        security_mode_command->presencemask |=
+            OGS_NAS_EPS_SECURITY_MODE_COMMAND_REPLAYED_NONCEUE_PRESENT;
+            security_mode_command->replayed_nonceue = mme_ue->nonceue;
+    }
+
+    if (mme_ue->noncemme) {
+        security_mode_command->presencemask |=
+            OGS_NAS_EPS_SECURITY_MODE_COMMAND_NONCEMME_PRESENT;
+            security_mode_command->noncemme = mme_ue->noncemme;
+    }
+
     /*
      * TS24.301
      * 5.4.3.2 NAS security mode control initiation by the network
@@ -431,12 +440,8 @@ ogs_pkbuf_t *emm_build_security_mode_command(mme_ue_t *mme_ue)
                 sizeof(mme_ue->ue_additional_security_capability));
     }
 
-    if (mme_ue->selected_int_algorithm == OGS_NAS_SECURITY_ALGORITHMS_EIA0) {
-        ogs_error("Encrypt[0x%x] can be skipped with EEA0, "
-            "but Integrity[0x%x] cannot be bypassed with EIA0",
-            mme_ue->selected_enc_algorithm, mme_ue->selected_int_algorithm);
-        return NULL;
-    }
+    ogs_assert(mme_ue->selected_int_algorithm !=
+            OGS_NAS_SECURITY_ALGORITHMS_EIA0);
 
     ogs_kdf_nas_eps(OGS_KDF_NAS_INT_ALG, mme_ue->selected_int_algorithm,
             mme_ue->kasme, mme_ue->knas_int);

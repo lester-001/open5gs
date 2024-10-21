@@ -154,7 +154,9 @@ static int ogs_pfcp_check_subnet_overlapping(void)
     ogs_list_for_each(&self.subnet_list, subnet){
         for (next_subnet = ogs_list_next(subnet); (next_subnet);
                 next_subnet = ogs_list_next(next_subnet)) {
-            if (strcmp(subnet->dnn, next_subnet->dnn) == 0 &&
+            if ((strlen(subnet->dnn) == 0 ||
+                 strlen(next_subnet->dnn) == 0 ||
+                (strcmp(subnet->dnn, next_subnet->dnn)) == 0) &&
                 subnet->gw.family == next_subnet->gw.family) {
                 uint32_t *addr1 = subnet->sub.sub;
                 uint32_t *addr2 = next_subnet->sub.sub;
@@ -217,6 +219,7 @@ int ogs_pfcp_context_parse_config(const char *local, const char *remote)
     int rv;
     yaml_document_t *document = NULL;
     ogs_yaml_iter_t root_iter;
+    int idx = 0;
 
     document = ogs_app()->document;
     ogs_assert(document);
@@ -228,7 +231,8 @@ int ogs_pfcp_context_parse_config(const char *local, const char *remote)
     while (ogs_yaml_iter_next(&root_iter)) {
         const char *root_key = ogs_yaml_iter_key(&root_iter);
         ogs_assert(root_key);
-        if (!strcmp(root_key, local)) {
+        if ((!strcmp(root_key, local)) &&
+            idx++ == ogs_app()->config_section_id) {
             ogs_yaml_iter_t local_iter;
             ogs_yaml_iter_recurse(&root_iter, &local_iter);
             while (ogs_yaml_iter_next(&local_iter)) {
@@ -741,12 +745,16 @@ int ogs_pfcp_context_parse_config(const char *local, const char *remote)
                     do {
                         ogs_pfcp_subnet_t *subnet = NULL;
                         const char *ipstr = NULL;
+                        const char *gateway = NULL;
                         const char *mask_or_numbits = NULL;
                         const char *dnn = NULL;
                         const char *dev = self.tun_ifname;
                         const char *low[OGS_MAX_NUM_OF_SUBNET_RANGE];
                         const char *high[OGS_MAX_NUM_OF_SUBNET_RANGE];
                         int i, num = 0;
+
+                        memset(low, 0, sizeof(low));
+                        memset(high, 0, sizeof(high));
 
                         if (ogs_yaml_iter_type(&subnet_array) ==
                                 YAML_MAPPING_NODE) {
@@ -776,6 +784,8 @@ int ogs_pfcp_context_parse_config(const char *local, const char *remote)
                                         mask_or_numbits = (const char *)v;
                                     }
                                 }
+                            } else if (!strcmp(subnet_key, "gateway")) {
+                                gateway = ogs_yaml_iter_value(&subnet_iter);
                             } else if (!strcmp(subnet_key, "apn") ||
                                         !strcmp(subnet_key, "dnn")) {
                                 dnn = ogs_yaml_iter_value(&subnet_iter);
@@ -820,7 +830,7 @@ int ogs_pfcp_context_parse_config(const char *local, const char *remote)
                         }
 
                         subnet = ogs_pfcp_subnet_add(
-                                ipstr, mask_or_numbits, dnn, dev);
+                                ipstr, mask_or_numbits, gateway, dnn, dev);
                         ogs_assert(subnet);
 
                         subnet->num_of_range = num;
@@ -1181,7 +1191,7 @@ void ogs_pfcp_object_teid_hash_set(
             ogs_gtpu_resource_t *resource = NULL;
             resource = ogs_pfcp_find_gtpu_resource(
                     &ogs_gtp_self()->gtpu_resource_list,
-                    pdr->dnn, OGS_PFCP_INTERFACE_ACCESS);
+                    pdr->dnn, pdr->src_if);
             if (resource) {
                 ogs_assert(
                     (resource->info.v4 && pdr->f_teid.ipv4) ||
@@ -2140,7 +2150,7 @@ ogs_pfcp_dev_t *ogs_pfcp_dev_find_by_ifname(const char *ifname)
 
 ogs_pfcp_subnet_t *ogs_pfcp_subnet_add(
         const char *ipstr, const char *mask_or_numbits,
-        const char *dnn, const char *ifname)
+        const char *gateway, const char *dnn, const char *ifname)
 {
     int rv;
     ogs_pfcp_dev_t *dev = NULL;
@@ -2169,6 +2179,41 @@ ogs_pfcp_subnet_t *ogs_pfcp_subnet_add(
 
         subnet->family = subnet->gw.family;
         subnet->prefixlen = atoi(mask_or_numbits);
+
+        if (memcmp(subnet->gw.sub, subnet->sub.sub,
+                    sizeof(subnet->gw.sub)) != 0) {
+            char *subnet_string = NULL;
+
+            if (subnet->family == AF_INET) {
+                subnet_string = ogs_ipv4_to_string(subnet->sub.sub[0]);
+                ogs_assert(subnet_string);
+            } else if (subnet->family == AF_INET6) {
+                subnet_string = ogs_ipv6addr_to_string(
+                        (uint8_t*)&subnet->sub.sub[0]);
+                ogs_assert(subnet_string);
+            }
+
+            ogs_warn("Please change the configuration files of "
+                    "smf.yaml and upf.yaml as below.");
+            ogs_log_print(OGS_LOG_WARN, "\n<OLD Format>\n");
+            ogs_log_print(OGS_LOG_WARN, "smf:\n");
+            ogs_log_print(OGS_LOG_WARN, "  session:\n");
+            ogs_log_print(OGS_LOG_WARN, "    - subnet: %s/%s\n",
+                    ipstr, mask_or_numbits);
+            ogs_log_print(OGS_LOG_WARN, "\n<NEW Format>\n");
+            ogs_log_print(OGS_LOG_WARN, "smf:\n");
+            ogs_log_print(OGS_LOG_WARN, "  session:\n");
+            ogs_log_print(OGS_LOG_WARN, "    - subnet: %s/%s\n",
+                    subnet_string ? subnet_string : "Unknown", mask_or_numbits);
+            ogs_log_print(OGS_LOG_WARN, "      gateway: %s\n\n\n", ipstr);
+
+            ogs_free(subnet_string);
+        }
+    }
+
+    if (gateway) {
+        rv = ogs_ipsubnet(&subnet->gw, gateway, NULL);
+        ogs_assert(rv == OGS_OK);
     }
 
     if (dnn)

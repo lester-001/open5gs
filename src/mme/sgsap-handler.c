@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 by Sukchan Lee <acetcom@gmail.com>
+ * Copyright (C) 2019-2024 by Sukchan Lee <acetcom@gmail.com>
  *
  * This file is part of Open5GS.
  *
@@ -33,6 +33,7 @@ void sgsap_handle_location_update_accept(mme_vlr_t *vlr, ogs_pkbuf_t *pkbuf)
     int r;
     ogs_tlv_t *root = NULL, *iter = NULL;
     mme_ue_t *mme_ue = NULL;
+    enb_ue_t *enb_ue = NULL;
 
     char imsi_bcd[OGS_MAX_IMSI_BCD_LEN+1];
 
@@ -124,12 +125,22 @@ void sgsap_handle_location_update_accept(mme_vlr_t *vlr, ogs_pkbuf_t *pkbuf)
     return;
 
 error:
-    r = nas_eps_send_attach_reject(mme_ue,
-            OGS_NAS_EMM_CAUSE_PROTOCOL_ERROR_UNSPECIFIED,
-            OGS_NAS_ESM_CAUSE_PROTOCOL_ERROR_UNSPECIFIED);
-    ogs_expect(r == OGS_OK);
-    ogs_assert(r != OGS_ERROR);
-    mme_send_delete_session_or_mme_ue_context_release(mme_ue);
+    /* Clang scan-build SA: NULL pointer dereference: mme_ue=NULL if root=NULL. */
+    if (!mme_ue) {
+        ogs_error("!mme_ue");
+        return;
+    }  
+    enb_ue = enb_ue_find_by_id(mme_ue->enb_ue_id);
+    if (enb_ue) {
+        r = nas_eps_send_attach_reject(
+                enb_ue, mme_ue,
+                OGS_NAS_EMM_CAUSE_PROTOCOL_ERROR_UNSPECIFIED,
+                OGS_NAS_ESM_CAUSE_PROTOCOL_ERROR_UNSPECIFIED);
+        ogs_expect(r == OGS_OK);
+        ogs_assert(r != OGS_ERROR);
+        mme_send_delete_session_or_mme_ue_context_release(enb_ue, mme_ue);
+    } else
+        ogs_error("ENB-S1 Context has already been removed");
 }
 
 void sgsap_handle_location_update_reject(mme_vlr_t *vlr, ogs_pkbuf_t *pkbuf)
@@ -210,11 +221,9 @@ void sgsap_handle_location_update_reject(mme_vlr_t *vlr, ogs_pkbuf_t *pkbuf)
                     ogs_plmn_id_hexdump(&lai->nas_plmn_id), lai->lac);
     }
 
-    r = nas_eps_send_attach_reject(mme_ue,
-            emm_cause, OGS_NAS_ESM_CAUSE_PROTOCOL_ERROR_UNSPECIFIED);
+    r = nas_eps_send_attach_accept(mme_ue);
     ogs_expect(r == OGS_OK);
     ogs_assert(r != OGS_ERROR);
-    mme_send_delete_session_or_mme_ue_context_release(mme_ue);
 
     return;
 
@@ -227,6 +236,7 @@ void sgsap_handle_detach_ack(mme_vlr_t *vlr, ogs_pkbuf_t *pkbuf)
 {
     ogs_tlv_t *root = NULL, *iter = NULL;
     mme_ue_t *mme_ue = NULL;
+    enb_ue_t *enb_ue = NULL;
 
     char imsi_bcd[OGS_MAX_IMSI_BCD_LEN+1];
 
@@ -296,7 +306,11 @@ void sgsap_handle_detach_ack(mme_vlr_t *vlr, ogs_pkbuf_t *pkbuf)
 
     ogs_debug("    IMSI[%s]", mme_ue->imsi_bcd);
 
-    mme_send_delete_session_or_detach(mme_ue);
+    enb_ue = enb_ue_find_by_id(mme_ue->enb_ue_id);
+    if (enb_ue)
+        mme_send_delete_session_or_detach(enb_ue, mme_ue);
+    else
+        ogs_error("ENB-S1 Context has already been removed");
 }
 
 void sgsap_handle_paging_request(mme_vlr_t *vlr, ogs_pkbuf_t *pkbuf)
@@ -334,9 +348,11 @@ void sgsap_handle_paging_request(mme_vlr_t *vlr, ogs_pkbuf_t *pkbuf)
             nas_mobile_identity_imsi_len = iter->length;
             break;
         case SGSAP_IE_VLR_NAME_TYPE:
-            ogs_assert(0 < ogs_fqdn_parse(
-                    vlr_name, iter->value,
-                    ogs_min(iter->length, SGSAP_IE_VLR_NAME_LEN)));
+            if (ogs_fqdn_parse(vlr_name, iter->value,
+                ogs_min(iter->length, SGSAP_IE_VLR_NAME_LEN)) <= 0) {
+                ogs_error("Invalid VLR-Name");
+                return;
+            }
             break;
         case SGSAP_IE_LAI_TYPE:
             lai = iter->value;

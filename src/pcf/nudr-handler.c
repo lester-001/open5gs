@@ -174,7 +174,8 @@ cleanup:
     ogs_assert(status);
     ogs_error("%s", strerror);
     ogs_assert(true ==
-        ogs_sbi_server_send_error(stream, status, recvmsg, strerror, NULL));
+        ogs_sbi_server_send_error(stream, status, recvmsg, strerror,
+                NULL, NULL));
     ogs_free(strerror);
 
     ogs_subscription_data_free(&subscription_data);
@@ -192,7 +193,7 @@ bool pcf_nudr_dr_handle_query_sm_data(
     int r;
 
     ogs_assert(sess);
-    pcf_ue = sess->pcf_ue;
+    pcf_ue = pcf_ue_find_by_id(sess->pcf_ue_id);
     ogs_assert(pcf_ue);
     ogs_assert(stream);
     server = ogs_sbi_server_from_stream(stream);
@@ -214,7 +215,8 @@ bool pcf_nudr_dr_handle_query_sm_data(
 
         service_type = OGS_SBI_SERVICE_TYPE_NPCF_POLICYAUTHORIZATION;
 
-        nf_instance = sess->sbi.service_type_array[service_type].nf_instance;
+        nf_instance = OGS_SBI_GET_NF_INSTANCE(
+                sess->sbi.service_type_array[service_type]);
         if (!nf_instance) {
             OpenAPI_nf_type_e requester_nf_type =
                         NF_INSTANCE_TYPE(ogs_sbi_self()->nf_instance);
@@ -249,10 +251,22 @@ bool pcf_nudr_dr_handle_query_sm_data(
 
 cleanup:
     ogs_assert(strerror);
-    ogs_assert(status);
+    status = OGS_SBI_HTTP_STATUS_FORBIDDEN;
     ogs_error("%s", strerror);
+    /*
+     * TS29.512
+     * 4.2.2.2 SM Policy Association establishment 
+     *
+     * If the PCF, based on local configuration and/or operator
+     * policies, denies the creation of the Individual SM Policy
+     * resource, the PCF may reject the request and include in
+     * an HTTP "403 Forbidden" response message the "cause"
+     * attribute of the ProblemDetails data structure set to
+     * "POLICY_CONTEXT_DENIED".
+     */
     ogs_assert(true ==
-        ogs_sbi_server_send_error(stream, status, recvmsg, strerror, NULL));
+        ogs_sbi_server_send_error(stream, status, recvmsg, strerror,
+                NULL, "POLICY_CONTEXT_DENIED"));
     ogs_free(strerror);
 
     return false;
