@@ -50,12 +50,17 @@ static bool maximum_number_of_enbs_is_reached(void)
 
 static bool enb_plmn_id_is_foreign(mme_enb_t *enb)
 {
-    int i;
+    int i, j, k;
 
-    for (i = 0; i < enb->num_of_supported_ta_list; i++) {
-        if (memcmp(&enb->plmn_id, &enb->supported_ta_list[i].plmn_id,
-                    OGS_PLMN_ID_LEN) == 0)
-            return false;
+    for (i = 0; i < mme_self()->num_of_served_gummei; i++) {
+        for (j = 0; j < mme_self()->served_gummei[i].num_of_plmn_id; j++) {
+            for (k = 0; k < enb->num_of_supported_ta_list; k++) {
+                if (memcmp(&mme_self()->served_gummei[i].plmn_id[j],
+                            &enb->supported_ta_list[k].plmn_id,
+                            OGS_PLMN_ID_LEN) == 0)
+                    return false;
+            }
+        }
     }
 
     return true;
@@ -1983,6 +1988,11 @@ void s1ap_handle_ue_context_release_action(enb_ue_t *enb_ue)
             ogs_error("No UE(mme-ue) context");
             return;
         }
+        enb_ue = enb_ue_find_by_id(mme_ue->enb_ue_id);
+        if (!enb_ue) {
+            ogs_error("No UE(target-enb-ue) context");
+            return;
+        }
         if (mme_ue_have_indirect_tunnel(mme_ue) == true) {
             ogs_assert(OGS_OK ==
                 mme_gtp_send_delete_indirect_data_forwarding_tunnel_request(
@@ -2002,6 +2012,11 @@ void s1ap_handle_ue_context_release_action(enb_ue_t *enb_ue)
 
         if (!mme_ue) {
             ogs_error("No UE(mme-ue) context");
+            return;
+        }
+        enb_ue = enb_ue_find_by_id(mme_ue->enb_ue_id);
+        if (!enb_ue) {
+            ogs_error("No UE(target-enb-ue) context");
             return;
         }
         if (mme_ue_have_indirect_tunnel(mme_ue) == true) {
@@ -2253,7 +2268,7 @@ void s1ap_handle_enb_direct_information_transfer(
     ogs_plmn_id_t plmn_id;
     ogs_nas_rai_t rai;
     uint16_t cell_id;
-    unsigned int i;
+    int i, r;
     mme_sgsn_t *sgsn = NULL;
 
     ogs_assert(enb);
@@ -2278,7 +2293,15 @@ void s1ap_handle_enb_direct_information_transfer(
 
     /* Clang scan-build SA: NULL pointer dereference: Inter_SystemInformationTransferType=NULL if above
      * protocolIEs.list.count=0 in loop. */
-    ogs_assert(Inter_SystemInformationTransferType);
+    if (!Inter_SystemInformationTransferType) {
+        ogs_warn("No Inter_SystemInformationTransferType");
+        r = s1ap_send_error_indication(enb, NULL, NULL,
+                S1AP_Cause_PR_protocol, S1AP_CauseProtocol_semantic_error);
+        ogs_expect(r == OGS_OK);
+        ogs_assert(r != OGS_ERROR);
+        return;
+    }
+
 
     RIMTransfer = Inter_SystemInformationTransferType->choice.rIMTransfer;
 
