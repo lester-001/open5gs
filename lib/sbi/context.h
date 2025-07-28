@@ -161,6 +161,7 @@ typedef struct ogs_sbi_nf_instance_s {
     int num_of_plmn_id;
 
     char *fqdn;
+    char *hnrf_uri; /* NRF Only */
 
 #define OGS_SBI_MAX_NUM_OF_IP_ADDRESS 8
     int num_of_ipv4;
@@ -215,8 +216,9 @@ typedef struct ogs_sbi_object_s {
          */
         ogs_time_t validity_timeout;
 #endif
-    } nf_type_array[OGS_SBI_MAX_NUM_OF_NF_TYPE],
-      service_type_array[OGS_SBI_MAX_NUM_OF_SERVICE_TYPE];
+      } nf_type_array[OGS_SBI_MAX_NUM_OF_NF_TYPE],
+        service_type_array[OGS_SBI_MAX_NUM_OF_SERVICE_TYPE],
+        home_nsmf_pdusession;
 
     ogs_list_t xact_list;
 
@@ -602,6 +604,9 @@ bool ogs_sbi_discovery_option_requester_plmn_list_is_matched(
         ogs_sbi_nf_instance_t *nf_instance,
         ogs_sbi_discovery_option_t *discovery_option);
 bool ogs_sbi_discovery_option_target_plmn_list_is_matched(
+        ogs_sbi_nf_instance_t *nf_instance,
+        ogs_sbi_discovery_option_t *discovery_option);
+bool ogs_sbi_discovery_option_hnrf_uri_is_matched(
         ogs_sbi_nf_instance_t *nf_instance,
         ogs_sbi_discovery_option_t *discovery_option);
 
